@@ -6,15 +6,17 @@
 //! - Nonce construction
 //! - Anti-replay protection
 //! - Rekeying
-//!
-//! # Status
-//!
-//! This module is a placeholder. Full implementation pending.
 
-// TODO: Implement crypto layer
-// - noise.rs: Noise_IK handshake via `snow`
-// - aead.rs: XChaCha20-Poly1305 encrypt/decrypt
-// - nonce.rs: 24-byte nonce construction (epoch|dir|counter)
-// - keys.rs: Key types with `Zeroize`
-// - session.rs: Session state (keys, counters, replay window)
-// - rekey.rs: Rekeying logic
+mod aead;
+mod keys;
+mod noise;
+mod nonce;
+mod rekey;
+mod session;
+
+pub use aead::*;
+pub use keys::*;
+pub use noise::*;
+pub use nonce::*;
+pub use rekey::*;
+pub use session::*;

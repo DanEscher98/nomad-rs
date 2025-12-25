@@ -14,11 +14,13 @@
 //! ## Feature Flags
 //!
 //! - `transport` (default): Transport layer (frames, RTT, pacing, sockets)
+//! - `crypto` (default): Security layer (Noise_IK, XChaCha20-Poly1305)
 //!
 //! ## Modules
 //!
 //! - [`core`]: Core traits, constants, and error types (always included)
 //! - [`transport`]: Transport layer (requires `transport` feature)
+//! - [`crypto`]: Security layer (requires `crypto` feature)
 //!
 //! ## Example Usage
 //!
@@ -77,8 +79,12 @@ pub mod core;
 #[cfg_attr(docsrs, doc(cfg(feature = "transport")))]
 pub mod transport;
 
+// Crypto layer (feature-gated)
+#[cfg(feature = "crypto")]
+#[cfg_attr(docsrs, doc(cfg(feature = "crypto")))]
+pub mod crypto;
+
 // Placeholder modules (not yet implemented)
-mod crypto;
 mod sync;
 mod extensions;
 mod client;
@@ -89,9 +95,18 @@ pub mod prelude {
     // Core traits and types
     pub use crate::core::*;
 
-    // Transport types (when enabled)
+    // Transport types (when enabled) - exclude SessionId to avoid conflict with crypto
     #[cfg(feature = "transport")]
-    pub use crate::transport::*;
+    pub use crate::transport::{
+        ConnectionPhase, ConnectionState, DataFrame, DataFrameHeader, FrameFlags, FramePacer,
+        FrameType, MigrationState, NomadSocket, NomadSocketBuilder, PacerAction,
+        PayloadHeader, RetransmitController, RttEstimator, SendReason, TimestampTracker,
+        TransportError, TransportResult,
+    };
+
+    // Crypto types (when enabled) - SessionId comes from here
+    #[cfg(feature = "crypto")]
+    pub use crate::crypto::*;
 }
 
 // Re-export commonly used items at crate root
