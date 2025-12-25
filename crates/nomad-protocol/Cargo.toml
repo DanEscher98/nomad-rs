@@ -1,0 +1,49 @@
+[package]
+name = "nomad-protocol"
+description = "NOMAD Protocol - Network-Optimized Mobile Application Datagram. A secure UDP-based state synchronization protocol."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme = "../../README.md"
+
+[dependencies]
+# Core (always included)
+nomad-core.workspace = true
+nomad-crypto.workspace = true
+
+# Optional layers
+nomad-transport = { workspace = true, optional = true }
+nomad-sync = { workspace = true, optional = true }
+nomad-extensions = { workspace = true, optional = true }
+
+# Optional high-level APIs
+nomad-client = { workspace = true, optional = true }
+nomad-server = { workspace = true, optional = true }
+
+[features]
+default = ["full"]
+
+# Include all protocol layers
+full = ["transport", "sync", "extensions", "client", "server"]
+
+# Individual layers
+transport = ["dep:nomad-transport"]
+sync = ["dep:nomad-sync", "transport"]
+extensions = ["dep:nomad-extensions"]
+
+# High-level APIs (includes all dependencies)
+client = ["dep:nomad-client", "sync", "extensions"]
+server = ["dep:nomad-server", "sync", "extensions"]
+
+# Compression extension
+compression = ["nomad-extensions/compression"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

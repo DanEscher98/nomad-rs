@@ -1,0 +1,23 @@
+[package]
+name = "nomad-echo"
+description = "NOMAD Protocol - Echo example (nomad.echo.v1)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "nomad-echo"
+path = "src/main.rs"
+
+[dependencies]
+nomad-core.workspace = true
+nomad-crypto.workspace = true
+nomad-transport.workspace = true
+nomad-sync.workspace = true
+nomad-extensions.workspace = true
+nomad-client.workspace = true
+nomad-server.workspace = true
+tokio.workspace = true
+axum.workspace = true
+thiserror.workspace = true

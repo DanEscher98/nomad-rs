@@ -1,0 +1,10 @@
+[package]
+name = "nomad-core"
+description = "NOMAD Protocol - Core traits, types, and constants"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+thiserror.workspace = true
