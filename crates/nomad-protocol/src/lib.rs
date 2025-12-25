@@ -13,93 +13,92 @@
 //!
 //! ## Feature Flags
 //!
-//! - `full` (default): Include all features
-//! - `transport`: Transport layer (frames, RTT, pacing)
-//! - `sync`: Sync layer (state versioning, diffs)
-//! - `extensions`: Protocol extensions (compression)
-//! - `client`: High-level client API
-//! - `server`: High-level server API
-//! - `compression`: Enable zstd compression
+//! - `transport` (default): Transport layer (frames, RTT, pacing, sockets)
+//!
+//! ## Modules
+//!
+//! - [`core`]: Core traits, constants, and error types (always included)
+//! - [`transport`]: Transport layer (requires `transport` feature)
 //!
 //! ## Example Usage
 //!
-//! ```rust,ignore
-//! use nomad::prelude::*;
+//! ```rust
+//! use nomad_protocol::prelude::*;
 //!
 //! // Define your state type
 //! #[derive(Clone)]
-//! struct MyState { /* ... */ }
+//! struct MyState {
+//!     counter: u64,
+//! }
+//!
+//! #[derive(Clone)]
+//! struct MyDiff {
+//!     delta: i64,
+//! }
 //!
 //! impl SyncState for MyState {
 //!     type Diff = MyDiff;
-//!     const STATE_TYPE_ID: &'static str = "com.example.myapp.v1";
-//!     // ... implement trait methods
+//!     const STATE_TYPE_ID: &'static str = "example.counter.v1";
+//!
+//!     fn diff_from(&self, old: &Self) -> Self::Diff {
+//!         MyDiff {
+//!             delta: self.counter as i64 - old.counter as i64,
+//!         }
+//!     }
+//!
+//!     fn apply_diff(&mut self, diff: &Self::Diff) -> Result<(), ApplyError> {
+//!         self.counter = (self.counter as i64 + diff.delta) as u64;
+//!         Ok(())
+//!     }
+//!
+//!     fn encode_diff(diff: &Self::Diff) -> Vec<u8> {
+//!         diff.delta.to_le_bytes().to_vec()
+//!     }
+//!
+//!     fn decode_diff(data: &[u8]) -> Result<Self::Diff, DecodeError> {
+//!         if data.len() < 8 {
+//!             return Err(DecodeError::UnexpectedEof);
+//!         }
+//!         let delta = i64::from_le_bytes(data[..8].try_into().unwrap());
+//!         Ok(MyDiff { delta })
+//!     }
 //! }
 //! ```
-//!
-//! ## Crate Organization
-//!
-//! - [`core`]: Core traits and types (always included)
-//! - [`crypto`]: Cryptographic primitives (always included)
-//! - [`transport`]: Transport layer (requires `transport` feature)
-//! - [`sync`]: Sync layer (requires `sync` feature)
-//! - [`extensions`]: Protocol extensions (requires `extensions` feature)
-//! - [`client`]: High-level client API (requires `client` feature)
-//! - [`server`]: High-level server API (requires `server` feature)
 
 #![forbid(unsafe_code)]
+#![warn(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-// Core (always included)
-pub use nomad_core as core;
-pub use nomad_crypto as crypto;
+// Core module (always included)
+pub mod core;
 
-// Optional layers
+// Transport layer (feature-gated)
 #[cfg(feature = "transport")]
 #[cfg_attr(docsrs, doc(cfg(feature = "transport")))]
-pub use nomad_transport as transport;
+pub mod transport;
 
-#[cfg(feature = "sync")]
-#[cfg_attr(docsrs, doc(cfg(feature = "sync")))]
-pub use nomad_sync as sync;
-
-#[cfg(feature = "extensions")]
-#[cfg_attr(docsrs, doc(cfg(feature = "extensions")))]
-pub use nomad_extensions as extensions;
-
-#[cfg(feature = "client")]
-#[cfg_attr(docsrs, doc(cfg(feature = "client")))]
-pub use nomad_client as client;
-
-#[cfg(feature = "server")]
-#[cfg_attr(docsrs, doc(cfg(feature = "server")))]
-pub use nomad_server as server;
+// Placeholder modules (not yet implemented)
+mod crypto;
+mod sync;
+mod extensions;
+mod client;
+mod server;
 
 /// Prelude module for convenient imports.
 pub mod prelude {
-    // Core traits
-    pub use nomad_core::*;
+    // Core traits and types
+    pub use crate::core::*;
 
-    // Crypto types commonly needed
-    pub use nomad_crypto::*;
-
-    // Transport types
+    // Transport types (when enabled)
     #[cfg(feature = "transport")]
-    pub use nomad_transport::*;
-
-    // Sync types
-    #[cfg(feature = "sync")]
-    pub use nomad_sync::*;
-
-    // Extension types
-    #[cfg(feature = "extensions")]
-    pub use nomad_extensions::*;
-
-    // Client types
-    #[cfg(feature = "client")]
-    pub use nomad_client::*;
-
-    // Server types
-    #[cfg(feature = "server")]
-    pub use nomad_server::*;
+    pub use crate::transport::*;
 }
+
+// Re-export commonly used items at crate root
+pub use core::{ApplyError, DecodeError, NomadError, SyncState};
+
+#[cfg(feature = "transport")]
+pub use transport::{
+    ConnectionPhase, ConnectionState, DataFrame, DataFrameHeader, FrameFlags, FramePacer,
+    FrameType, NomadSocket, PayloadHeader, RttEstimator, SessionId,
+};

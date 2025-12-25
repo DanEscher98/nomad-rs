@@ -25,7 +25,7 @@ keywords = ["protocol", "networking", "mobile", "udp", "sync"]
 categories = ["network-programming", "asynchronous", "cryptography"]
 
 [workspace.dependencies]
-# Internal crates
+# Internal crates (path-only, not published)
 nomad-protocol = { path = "crates/nomad-protocol" }
 nomad-core = { path = "crates/nomad-core" }
 nomad-crypto = { path = "crates/nomad-crypto" }
