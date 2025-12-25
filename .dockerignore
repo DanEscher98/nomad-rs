@@ -1,0 +1,39 @@
+# Build artifacts
+target/
+*.rs.bk
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# CI/CD
+.github/
+
+# Worktrees (octopus-dev)
+.worktrees/
+.octopus/
+
+# Documentation (not needed for runtime)
+*.md
+!README.md
+docs/
+
+# Test files
+vectors/
+**/test_vectors/
+
+# Development files
+Justfile
+.envrc
+.rustfmt.toml
+clippy.toml
+
+# Docker files in subdirs (avoid recursion)
+**/Dockerfile
+**/.dockerignore

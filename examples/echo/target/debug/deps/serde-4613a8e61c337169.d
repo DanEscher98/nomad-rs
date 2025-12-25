@@ -1,0 +1,14 @@
+/home/danyiel/Working/niceProjects/MoshiMoshi/nomad-rs/examples/echo/target/debug/deps/serde-4613a8e61c337169.d: /home/danyiel/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/danyiel/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/danyiel/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/danyiel/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/danyiel/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /home/danyiel/Working/niceProjects/MoshiMoshi/nomad-rs/examples/echo/target/debug/build/serde-e59866aa333d97d3/out/private.rs
+
+/home/danyiel/Working/niceProjects/MoshiMoshi/nomad-rs/examples/echo/target/debug/deps/libserde-4613a8e61c337169.rlib: /home/danyiel/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/danyiel/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/danyiel/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/danyiel/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/danyiel/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /home/danyiel/Working/niceProjects/MoshiMoshi/nomad-rs/examples/echo/target/debug/build/serde-e59866aa333d97d3/out/private.rs
+
+/home/danyiel/Working/niceProjects/MoshiMoshi/nomad-rs/examples/echo/target/debug/deps/libserde-4613a8e61c337169.rmeta: /home/danyiel/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/danyiel/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/danyiel/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/danyiel/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/danyiel/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /home/danyiel/Working/niceProjects/MoshiMoshi/nomad-rs/examples/echo/target/debug/build/serde-e59866aa333d97d3/out/private.rs
+
+/home/danyiel/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/home/danyiel/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/home/danyiel/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/home/danyiel/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/home/danyiel/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/home/danyiel/Working/niceProjects/MoshiMoshi/nomad-rs/examples/echo/target/debug/build/serde-e59866aa333d97d3/out/private.rs:
+
+# env-dep:OUT_DIR=/home/danyiel/Working/niceProjects/MoshiMoshi/nomad-rs/examples/echo/target/debug/build/serde-e59866aa333d97d3/out

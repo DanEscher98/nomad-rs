@@ -1,23 +1,39 @@
 [package]
 name = "nomad-echo"
 description = "NOMAD Protocol - Echo example (nomad.echo.v1)"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
 publish = false
 
 [[bin]]
 name = "nomad-echo"
 path = "src/main.rs"
 
+[[bin]]
+name = "keygen"
+path = "src/bin/keygen.rs"
+
 [dependencies]
-nomad-core.workspace = true
-nomad-crypto.workspace = true
-nomad-transport.workspace = true
-nomad-sync.workspace = true
-nomad-extensions.workspace = true
-nomad-client.workspace = true
-nomad-server.workspace = true
-tokio.workspace = true
-axum.workspace = true
-thiserror.workspace = true
+# Parent crate
+nomad-protocol = { path = "../..", features = ["full"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# HTTP health server
+axum = "0.8"
+
+# Error handling
+thiserror = "2"
+
+# Serialization (for health endpoint)
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Noise protocol (for handshake)
+snow = "0.9"
+
+# Key generation
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+rand = "0.8"

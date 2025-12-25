@@ -3,68 +3,60 @@
 # Default target
 default: check
 
-# Check all crates (fast compile check)
+# Check crate (fast compile check)
 check:
-    cargo check --workspace
+    cargo check --all-features
 
-# Build all crates
+# Build crate
 build:
-    cargo build --workspace
+    cargo build --all-features
 
 # Build in release mode
 build-release:
-    cargo build --workspace --release
+    cargo build --all-features --release
 
 # Run all tests
 test:
-    cargo test --workspace
+    cargo test --all-features
 
 # Run lints
 lint:
-    cargo clippy --workspace -- -D warnings
+    cargo clippy --all-features -- -D warnings
 
 # Format code
 fmt:
-    cargo fmt --all
+    cargo fmt
 
 # Check formatting
 fmt-check:
-    cargo fmt --all -- --check
+    cargo fmt -- --check
 
 # Full pre-commit check (build + lint + test)
 pre-commit: fmt-check lint test
 
+# =============================================================================
+# Documentation
+# =============================================================================
+
 # Generate documentation
 doc:
-    cargo doc --workspace --no-deps
+    cargo doc --all-features --no-deps
+
+# Generate and open documentation
+doc-open:
+    cargo doc --all-features --no-deps --open
+
+# Publish docs to docs/ directory (for GitHub Pages)
+doc-publish:
+    cargo doc --all-features --no-deps --release
+    rm -rf docs
+    cp -r target/doc docs
+    echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=nomad_protocol/index.html"><title>NOMAD Protocol</title></head><body><p>Redirecting...</p></body></html>' > docs/index.html
+    @echo "Documentation published to docs/"
 
 # Clean build artifacts
 clean:
     cargo clean
-
-# =============================================================================
-# Octopus-dev commands
-# =============================================================================
-
-# Show all tentacle status
-octopus-status:
-    bash ~/.claude/skills/octopus-dev/scripts/status.sh
-
-# Spawn a new tentacle worktree
-octopus-spawn id scope description="":
-    bash ~/.claude/skills/octopus-dev/scripts/spawn-tentacle.sh {{id}} "{{scope}}" "{{description}}"
-
-# Merge a completed tentacle
-octopus-merge id:
-    bash ~/.claude/skills/octopus-dev/scripts/merge-tentacle.sh {{id}}
-
-# Check for stale tentacles (default 2 hours)
-octopus-stale hours="2":
-    bash ~/.claude/skills/octopus-dev/scripts/check-stale.sh {{hours}}
-
-# List all worktrees
-worktrees:
-    git worktree list
 
 # =============================================================================
 # Echo example commands
@@ -72,12 +64,33 @@ worktrees:
 
 # Build echo example
 echo-build:
-    cargo build -p nomad-echo
+    cargo build --manifest-path examples/echo/Cargo.toml
 
-# Build echo Docker image (server)
-echo-docker-server:
-    docker build -t nomad-echo-server --target server examples/echo
+# Run echo server (test mode)
+echo-server:
+    NOMAD_MODE=server NOMAD_TEST_MODE=true cargo run --manifest-path examples/echo/Cargo.toml
 
-# Build echo Docker image (client)
-echo-docker-client:
-    docker build -t nomad-echo-client --target client examples/echo
+# Run echo client (test mode)
+echo-client:
+    NOMAD_MODE=client NOMAD_SERVER_PUBLIC_KEY=gqNRjwG8OsClvG2vWuafYeERaM95Pk0rTLmFAjh6JDo= cargo run --manifest-path examples/echo/Cargo.toml
+
+# Generate keypair
+echo-keygen:
+    cargo run --manifest-path examples/echo/Cargo.toml --bin keygen
+
+# Build echo Docker images
+echo-docker:
+    docker build -f examples/echo/Dockerfile --target server -t nomad-echo-server .
+    docker build -f examples/echo/Dockerfile --target client -t nomad-echo-client .
+
+# =============================================================================
+# Octopus-dev commands (if using parallel development)
+# =============================================================================
+
+# Show all tentacle status
+octopus-status:
+    bash ~/.claude/skills/octopus-dev/scripts/status.sh 2>/dev/null || echo "octopus-dev not configured"
+
+# List all worktrees
+worktrees:
+    git worktree list

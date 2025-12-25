@@ -1,18 +1,6 @@
-[workspace]
-resolver = "2"
-members = [
-    "crates/nomad-protocol",
-    "crates/nomad-core",
-    "crates/nomad-crypto",
-    "crates/nomad-transport",
-    "crates/nomad-sync",
-    "crates/nomad-extensions",
-    "crates/nomad-client",
-    "crates/nomad-server",
-    "examples/echo",
-]
-
-[workspace.package]
+[package]
+name = "nomad-protocol"
+description = "NOMAD Protocol - Network-Optimized Mobile Application Datagram. A secure UDP-based state synchronization protocol."
 version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
@@ -23,43 +11,59 @@ rust-version = "1.85"
 authors = ["The NOMAD Protocol Authors"]
 keywords = ["protocol", "networking", "mobile", "udp", "sync"]
 categories = ["network-programming", "asynchronous", "cryptography"]
+readme = "README.md"
 
-[workspace.dependencies]
-# Internal crates (path-only, not published)
-nomad-protocol = { path = "crates/nomad-protocol" }
-nomad-core = { path = "crates/nomad-core" }
-nomad-crypto = { path = "crates/nomad-crypto" }
-nomad-transport = { path = "crates/nomad-transport" }
-nomad-sync = { path = "crates/nomad-sync" }
-nomad-extensions = { path = "crates/nomad-extensions" }
-nomad-client = { path = "crates/nomad-client" }
-nomad-server = { path = "crates/nomad-server" }
-
+[dependencies]
 # Error handling
 thiserror = "2"
 
-# Crypto
-snow = "0.9"
-chacha20poly1305 = "0.10"
-blake2 = "0.10"
-zeroize = { version = "1", features = ["derive"] }
-rand = "0.8"
+# Transport layer dependencies
+tokio = { version = "1", features = ["full"], optional = true }
 
-# Async runtime
-tokio = { version = "1", features = ["full"] }
+# Crypto dependencies
+snow = { version = "0.9", optional = true }
+chacha20poly1305 = { version = "0.10", optional = true }
+blake2 = { version = "0.10", optional = true }
+zeroize = { version = "1", features = ["derive"], optional = true }
+rand = { version = "0.8", optional = true }
 
-# Compression
-zstd = "0.13"
+# Compression extension
+zstd = { version = "0.13", optional = true }
 
-# Health check server (for conformance)
-axum = "0.8"
-
-# Test utilities
+[dev-dependencies]
 hex = "0.4"
-json5 = "0.4"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+
+[features]
+default = ["transport", "crypto", "sync", "extensions", "client", "server"]
+
+# Transport layer (frames, RTT, pacing, sockets)
+transport = ["dep:tokio"]
+
+# Crypto layer (Noise_IK, XChaCha20-Poly1305, anti-replay)
+crypto = ["dep:snow", "dep:chacha20poly1305", "dep:blake2", "dep:zeroize", "dep:rand"]
+
+# Sync layer
+sync = []
+
+# Extensions
+extensions = ["dep:zstd"]
+
+# High-level APIs
+client = ["transport"]
+server = ["transport"]
+
+# All features
+full = ["transport", "sync", "crypto", "extensions", "client", "server"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [profile.release]
 lto = true
 codegen-units = 1
+
+# Echo example is a separate package with additional dependencies
+# Build with: cargo build -p nomad-echo
+# Or from examples/echo: cargo build
