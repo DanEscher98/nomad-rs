@@ -66,7 +66,9 @@ pub struct ClientConfig {
 impl Default for ClientConfig {
     fn default() -> Self {
         Self {
-            server_addr: "127.0.0.1:19999".parse().unwrap(),
+            server_addr: "127.0.0.1:19999"
+                .parse()
+                .expect("default server address is valid"),
             server_public_key: [0u8; 32],
             client_private_key: None,
             connect_timeout: Duration::from_secs(10),

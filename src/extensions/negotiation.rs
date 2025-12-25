@@ -127,8 +127,10 @@ impl Extension {
             });
         }
 
-        let ext_type = u16::from_le_bytes(data[0..2].try_into().unwrap());
-        let ext_len = u16::from_le_bytes(data[2..4].try_into().unwrap()) as usize;
+        let ext_type =
+            u16::from_le_bytes(data[0..2].try_into().expect("length checked above"));
+        let ext_len =
+            u16::from_le_bytes(data[2..4].try_into().expect("length checked above")) as usize;
 
         if data.len() < EXTENSION_HEADER_SIZE + ext_len {
             return Err(NegotiationError::TooShort {

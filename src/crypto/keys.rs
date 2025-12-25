@@ -2,9 +2,22 @@
 //!
 //! Provides secure key generation and handling for the NOMAD protocol.
 
+use std::sync::LazyLock;
+
 use crate::core::{PRIVATE_KEY_SIZE, PUBLIC_KEY_SIZE, SESSION_ID_SIZE};
 use rand::{rngs::OsRng, RngCore};
+use snow::params::NoiseParams;
 use zeroize::Zeroize;
+
+/// Noise pattern for keypair generation
+const NOISE_PATTERN: &str = "Noise_IK_25519_ChaChaPoly_BLAKE2s";
+
+/// Lazily-parsed Noise parameters for key generation
+static NOISE_PARAMS: LazyLock<NoiseParams> = LazyLock::new(|| {
+    NOISE_PATTERN
+        .parse()
+        .expect("NOISE_PATTERN is a valid Noise protocol pattern")
+});
 
 /// A static X25519 keypair for long-term identity.
 ///
@@ -21,8 +34,10 @@ impl StaticKeypair {
     /// Generate a new random keypair.
     pub fn generate() -> Self {
         // Use snow's keypair generation for proper X25519 keys
-        let builder = snow::Builder::new("Noise_IK_25519_ChaChaPoly_BLAKE2s".parse().unwrap());
-        let keypair = builder.generate_keypair().unwrap();
+        let builder = snow::Builder::new(NOISE_PARAMS.clone());
+        let keypair = builder
+            .generate_keypair()
+            .expect("X25519 keypair generation should not fail with valid params");
 
         let mut private_key = [0u8; PRIVATE_KEY_SIZE];
         let mut public_key = [0u8; PUBLIC_KEY_SIZE];

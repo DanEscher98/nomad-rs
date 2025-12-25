@@ -43,7 +43,7 @@ impl ClientIdentity {
 
         let seed = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .unwrap_or_default()
             .as_nanos() as u64;
 
         // Simple PRNG for placeholder (will be replaced with proper crypto)

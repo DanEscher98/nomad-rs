@@ -104,10 +104,14 @@ impl SyncMessage {
             });
         }
 
-        let sender_state_num = u64::from_le_bytes(data[0..8].try_into().unwrap());
-        let acked_state_num = u64::from_le_bytes(data[8..16].try_into().unwrap());
-        let base_state_num = u64::from_le_bytes(data[16..24].try_into().unwrap());
-        let diff_len = u32::from_le_bytes(data[24..28].try_into().unwrap()) as usize;
+        let sender_state_num =
+            u64::from_le_bytes(data[0..8].try_into().expect("length checked above"));
+        let acked_state_num =
+            u64::from_le_bytes(data[8..16].try_into().expect("length checked above"));
+        let base_state_num =
+            u64::from_le_bytes(data[16..24].try_into().expect("length checked above"));
+        let diff_len =
+            u32::from_le_bytes(data[24..28].try_into().expect("length checked above")) as usize;
 
         if data.len() < SYNC_MESSAGE_HEADER_SIZE + diff_len {
             return Err(MessageError::TooShort {

@@ -12,14 +12,23 @@
 //!
 //! After handshake, both parties derive session keys using HKDF.
 
+use std::sync::LazyLock;
+
 use crate::core::{CryptoError, HASH_SIZE, PUBLIC_KEY_SIZE};
-use snow::{Builder, HandshakeState};
+use snow::{params::NoiseParams, Builder, HandshakeState};
 use zeroize::Zeroize;
 
 use super::{SessionKey, StaticKeypair, SESSION_KEY_SIZE};
 
 /// Noise protocol pattern for NOMAD
 const NOISE_PATTERN: &str = "Noise_IK_25519_ChaChaPoly_BLAKE2s";
+
+/// Lazily-parsed Noise parameters (validated once at first use)
+static NOISE_PARAMS: LazyLock<NoiseParams> = LazyLock::new(|| {
+    NOISE_PATTERN
+        .parse()
+        .expect("NOISE_PATTERN is a valid Noise protocol pattern")
+});
 
 /// Result of a completed handshake
 pub struct HandshakeResult {
@@ -42,7 +51,7 @@ impl InitiatorHandshake {
         local_keypair: &StaticKeypair,
         remote_public: &[u8; PUBLIC_KEY_SIZE],
     ) -> Result<Self, CryptoError> {
-        let builder = Builder::new(NOISE_PATTERN.parse().unwrap());
+        let builder = Builder::new(NOISE_PARAMS.clone());
         let state = builder
             .local_private_key(local_keypair.private_key())
             .remote_public_key(remote_public)
@@ -110,7 +119,7 @@ impl ResponderHandshake {
     /// # Arguments
     /// * `local_keypair` - The responder's static keypair
     pub fn new(local_keypair: &StaticKeypair) -> Result<Self, CryptoError> {
-        let builder = Builder::new(NOISE_PATTERN.parse().unwrap());
+        let builder = Builder::new(NOISE_PARAMS.clone());
         let state = builder
             .local_private_key(local_keypair.private_key())
             .build_responder()

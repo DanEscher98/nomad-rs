@@ -61,7 +61,9 @@ pub struct ServerConfig {
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
-            bind_addr: "0.0.0.0:19999".parse().unwrap(),
+            bind_addr: "0.0.0.0:19999"
+                .parse()
+                .expect("default bind address is valid"),
             private_key: [0u8; 32],
             max_sessions: 1000,
             session_timeout: Duration::from_secs(300),

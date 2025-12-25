@@ -27,7 +27,7 @@ impl ServerSessionId {
 
         let seed = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .unwrap_or_default()
             .as_nanos() as u64;
 
         let mut id = [0u8; 6];
