@@ -16,8 +16,13 @@ members = [
 version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/example/nomad-rs"
+repository = "https://github.com/phaesoo/nomad-rs"
+homepage = "https://github.com/phaesoo/nomad-rs"
+documentation = "https://docs.rs/nomad-protocol"
 rust-version = "1.85"
+authors = ["The NOMAD Protocol Authors"]
+keywords = ["protocol", "networking", "mobile", "udp", "sync"]
+categories = ["network-programming", "asynchronous", "cryptography"]
 
 [workspace.dependencies]
 # Internal crates

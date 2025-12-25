@@ -1,9 +1,13 @@
 [package]
 name = "nomad-client"
-description = "NOMAD Protocol - Client library"
+description = "NOMAD Protocol - High-level async client API"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["client", "async", "networking", "nomad"]
+categories = ["network-programming", "asynchronous"]
 
 [dependencies]
 nomad-core.workspace = true

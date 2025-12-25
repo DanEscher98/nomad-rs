@@ -1,9 +1,13 @@
 [package]
 name = "nomad-server"
-description = "NOMAD Protocol - Server library"
+description = "NOMAD Protocol - High-level async server API with multi-session support"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["server", "async", "networking", "nomad"]
+categories = ["network-programming", "asynchronous"]
 
 [dependencies]
 nomad-core.workspace = true

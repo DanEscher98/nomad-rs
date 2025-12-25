@@ -1,9 +1,13 @@
 [package]
 name = "nomad-extensions"
-description = "NOMAD Protocol - Extensions (compression)"
+description = "NOMAD Protocol - Optional extensions including zstd compression"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["compression", "zstd", "extensions", "nomad"]
+categories = ["network-programming", "compression"]
 
 [dependencies]
 nomad-core.workspace = true

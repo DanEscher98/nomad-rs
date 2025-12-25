@@ -1,9 +1,13 @@
 [package]
 name = "nomad-core"
-description = "NOMAD Protocol - Core traits and types"
+description = "NOMAD Protocol - Core traits, types, and constants"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["protocol", "traits", "nomad"]
+categories = ["network-programming"]
 
 [dependencies]
 thiserror.workspace = true

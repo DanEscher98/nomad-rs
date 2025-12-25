@@ -1,9 +1,13 @@
 [package]
 name = "nomad-transport"
-description = "NOMAD Protocol - Transport layer (frames, RTT, pacing)"
+description = "NOMAD Protocol - Transport layer with frame encoding, RTT estimation, and connection migration"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["transport", "udp", "rtt", "framing", "nomad"]
+categories = ["network-programming", "asynchronous"]
 
 [dependencies]
 nomad-core.workspace = true

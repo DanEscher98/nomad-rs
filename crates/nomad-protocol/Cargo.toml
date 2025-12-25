@@ -1,12 +1,16 @@
 [package]
 name = "nomad-protocol"
-description = "NOMAD Protocol - Network-Optimized Mobile Application Datagram"
+description = "NOMAD Protocol - Network-Optimized Mobile Application Datagram. A secure UDP-based state synchronization protocol."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-keywords = ["protocol", "networking", "mobile", "sync", "mosh"]
-categories = ["network-programming", "asynchronous"]
-readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme = "../../README.md"
 
 [dependencies]
 # Core (always included)

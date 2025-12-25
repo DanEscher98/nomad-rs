@@ -1,9 +1,13 @@
 [package]
 name = "nomad-crypto"
-description = "NOMAD Protocol - Security layer (Noise_IK, XChaCha20-Poly1305)"
+description = "NOMAD Protocol - Security layer with Noise_IK handshake and XChaCha20-Poly1305 AEAD"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["cryptography", "noise", "xchacha20", "aead", "nomad"]
+categories = ["cryptography", "network-programming"]
 
 [dependencies]
 nomad-core.workspace = true

@@ -1,9 +1,13 @@
 [package]
 name = "nomad-sync"
-description = "NOMAD Protocol - Sync layer (state versioning, diffs)"
+description = "NOMAD Protocol - State synchronization with idempotent diffs and version tracking"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["sync", "state", "versioning", "diff", "nomad"]
+categories = ["network-programming"]
 
 [dependencies]
 nomad-core.workspace = true
