@@ -1,3 +1,6 @@
+[workspace]
+members = [".", "examples/echo"]
+
 [package]
 name = "nomad-protocol"
 description = "NOMAD Protocol - Network-Optimized Mobile Application Datagram. A secure UDP-based state synchronization protocol."

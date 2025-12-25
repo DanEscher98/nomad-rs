@@ -16,13 +16,13 @@ use tokio::sync::RwLock;
 
 use crate::state::EchoState;
 
-/// Message types for the protocol.
+/// Message types for the protocol (per specs/1-SECURITY.md).
 mod msg_type {
-    /// Handshake initiation (client -> server)
-    pub const HANDSHAKE_INIT: u8 = 0x00;
-    /// Handshake response (server -> client)
-    pub const HANDSHAKE_RESP: u8 = 0x01;
-    /// Encrypted data frame
+    /// Handshake initiation (client -> server) - Type 0x01
+    pub const HANDSHAKE_INIT: u8 = 0x01;
+    /// Handshake response (server -> client) - Type 0x02
+    pub const HANDSHAKE_RESP: u8 = 0x02;
+    /// Encrypted data frame - Type 0x03
     pub const DATA: u8 = 0x03;
 }
 
@@ -192,6 +192,10 @@ impl EchoServer {
     }
 
     /// Handle handshake initiation.
+    ///
+    /// Wire format per specs/1-SECURITY.md:
+    /// - HandshakeInit: [Type:1][Reserved:1][Version:2][Noise message...]
+    /// - HandshakeResp: [Type:1][Reserved:1][SessionID:6][Noise message...]
     async fn handle_handshake_init(
         &self,
         socket: &UdpSocket,
@@ -200,11 +204,22 @@ impl EchoServer {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         eprintln!("Received handshake init from {} ({} bytes)", addr, data.len());
 
+        // Parse wire format header: [Reserved:1][Version:2][Noise message...]
+        // Note: type byte already stripped by caller
+        if data.len() < 3 {
+            return Err("HandshakeInit too short for header".into());
+        }
+        let _reserved = data[0];
+        let version = u16::from_le_bytes([data[1], data[2]]);
+        let noise_message = &data[3..];
+
+        eprintln!("Protocol version: 0x{:04x}, noise message: {} bytes", version, noise_message.len());
+
         // Create responder handshake
         let mut handshake = ResponderHandshake::new(&self.config.keypair)?;
 
-        // Process initiator's message
-        let (client_payload, client_public_key) = handshake.read_message(data)?;
+        // Process initiator's Noise message (ephemeral + encrypted static + encrypted payload)
+        let (client_payload, client_public_key) = handshake.read_message(noise_message)?;
 
         eprintln!(
             "Client {} requests state type: {:?}, pubkey: {:02x?}",
@@ -226,13 +241,12 @@ impl EchoServer {
         // Generate session ID
         let session_id = SessionId::generate();
 
-        // Build response payload: [session_id:6][OK]
-        let mut response_payload = Vec::with_capacity(8);
-        response_payload.extend_from_slice(session_id.as_bytes());
-        response_payload.extend_from_slice(b"OK");
+        // Build response payload (encrypted part): just acknowledgment
+        // Session ID goes in the clear header, not here
+        let response_payload = b"OK";
 
-        // Complete handshake
-        let (response_message, handshake_result) = handshake.write_message(&response_payload)?;
+        // Complete handshake - this produces: [Responder Ephemeral:32][Encrypted Payload...]
+        let (noise_response, handshake_result) = handshake.write_message(response_payload)?;
 
         // Derive session keys
         let session_keys = SessionKeys::derive(&handshake_result)?;
@@ -250,10 +264,12 @@ impl EchoServer {
         let session = ClientSession::new(addr, crypto);
         self.sessions.write().await.insert(*session_id.as_bytes(), session);
 
-        // Send response: [type:1][message...]
-        let mut packet = Vec::with_capacity(1 + response_message.len());
-        packet.push(msg_type::HANDSHAKE_RESP);
-        packet.extend_from_slice(&response_message);
+        // Build response per spec: [Type:1][Reserved:1][SessionID:6][Noise response...]
+        let mut packet = Vec::with_capacity(8 + noise_response.len());
+        packet.push(msg_type::HANDSHAKE_RESP);  // Type 0x02
+        packet.push(0x00);                       // Reserved
+        packet.extend_from_slice(session_id.as_bytes());  // Session ID (6 bytes, in clear)
+        packet.extend_from_slice(&noise_response);        // Noise response (ephemeral + encrypted)
 
         socket.send_to(&packet, addr).await?;
 

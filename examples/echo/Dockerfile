@@ -20,36 +20,22 @@ WORKDIR /build
 
 # Copy workspace manifests first for layer caching
 COPY Cargo.toml Cargo.lock ./
-COPY crates/nomad-protocol/Cargo.toml crates/nomad-protocol/
-COPY crates/nomad-core/Cargo.toml crates/nomad-core/
-COPY crates/nomad-crypto/Cargo.toml crates/nomad-crypto/
-COPY crates/nomad-transport/Cargo.toml crates/nomad-transport/
-COPY crates/nomad-sync/Cargo.toml crates/nomad-sync/
-COPY crates/nomad-extensions/Cargo.toml crates/nomad-extensions/
-COPY crates/nomad-client/Cargo.toml crates/nomad-client/
-COPY crates/nomad-server/Cargo.toml crates/nomad-server/
 COPY examples/echo/Cargo.toml examples/echo/
 
 # Create dummy source files for dependency caching
-RUN mkdir -p crates/nomad-protocol/src && echo "" > crates/nomad-protocol/src/lib.rs && \
-    mkdir -p crates/nomad-core/src && echo "" > crates/nomad-core/src/lib.rs && \
-    mkdir -p crates/nomad-crypto/src && echo "" > crates/nomad-crypto/src/lib.rs && \
-    mkdir -p crates/nomad-transport/src && echo "" > crates/nomad-transport/src/lib.rs && \
-    mkdir -p crates/nomad-sync/src && echo "" > crates/nomad-sync/src/lib.rs && \
-    mkdir -p crates/nomad-extensions/src && echo "" > crates/nomad-extensions/src/lib.rs && \
-    mkdir -p crates/nomad-client/src && echo "" > crates/nomad-client/src/lib.rs && \
-    mkdir -p crates/nomad-server/src && echo "" > crates/nomad-server/src/lib.rs && \
-    mkdir -p examples/echo/src && echo "fn main() {}" > examples/echo/src/main.rs
+RUN mkdir -p src && echo "pub fn dummy() {}" > src/lib.rs && \
+    mkdir -p examples/echo/src && echo "fn main() {}" > examples/echo/src/main.rs && \
+    mkdir -p examples/echo/src/bin && echo "fn main() {}" > examples/echo/src/bin/keygen.rs
 
 # Build dependencies only (cached layer)
 RUN cargo build --release -p nomad-echo 2>/dev/null || true
 
 # Copy real source code
-COPY crates/ crates/
+COPY src/ src/
 COPY examples/echo/src/ examples/echo/src/
 
 # Touch source files to force rebuild
-RUN touch crates/*/src/*.rs examples/echo/src/*.rs
+RUN touch src/*.rs src/**/*.rs examples/echo/src/*.rs 2>/dev/null || true
 
 # Build the echo binary
 RUN cargo build --release -p nomad-echo
