@@ -4,10 +4,7 @@ description = "NOMAD Protocol - Security layer with Noise_IK handshake and XChaC
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-repository.workspace = true
-authors.workspace = true
-keywords = ["cryptography", "noise", "xchacha20", "aead", "nomad"]
-categories = ["cryptography", "network-programming"]
+publish = false
 
 [dependencies]
 nomad-core.workspace = true

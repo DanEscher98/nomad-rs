@@ -3,6 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/nomad-protocol.svg)](https://crates.io/crates/nomad-protocol)
 [![Documentation](https://docs.rs/nomad-protocol/badge.svg)](https://docs.rs/nomad-protocol)
 [![License](https://img.shields.io/crates/l/nomad-protocol.svg)](LICENSE-MIT)
+[![CI](https://github.com/DanEscher98/nomad-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/DanEscher98/nomad-rs/actions)
 
 **N**etwork-**O**ptimized **M**obile **A**pplication **D**atagram
 
@@ -170,18 +171,17 @@ NOMAD uses a **fixed** cryptographic suite with **no negotiation**:
 
 ## Crate Structure
 
-This workspace contains multiple crates:
+This workspace publishes a single crate `nomad-protocol` that contains all functionality. Internal modules:
 
-| Crate | Description |
-|-------|-------------|
-| `nomad-protocol` | Facade crate (use this) |
-| `nomad-core` | Core traits and constants |
-| `nomad-crypto` | Cryptographic primitives |
-| `nomad-transport` | Transport layer |
-| `nomad-sync` | State synchronization |
-| `nomad-extensions` | Protocol extensions |
-| `nomad-client` | High-level client API |
-| `nomad-server` | High-level server API |
+| Module | Description |
+|--------|-------------|
+| `core` | Core traits and constants |
+| `crypto` | Cryptographic primitives (Noise_IK, XChaCha20-Poly1305) |
+| `transport` | Frame encoding, RTT estimation, connection migration |
+| `sync` | State synchronization with idempotent diffs |
+| `extensions` | Optional extensions (compression) |
+| `client` | High-level async client API |
+| `server` | High-level async server API |
 
 ## Comparison with Mosh
 

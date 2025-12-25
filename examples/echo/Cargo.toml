@@ -4,6 +4,7 @@ description = "NOMAD Protocol - Echo example (nomad.echo.v1)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish = false
 
 [[bin]]
 name = "nomad-echo"

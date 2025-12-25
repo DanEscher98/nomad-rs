@@ -4,10 +4,7 @@ description = "NOMAD Protocol - High-level async server API with multi-session s
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-repository.workspace = true
-authors.workspace = true
-keywords = ["server", "async", "networking", "nomad"]
-categories = ["network-programming", "asynchronous"]
+publish = false
 
 [dependencies]
 nomad-core.workspace = true

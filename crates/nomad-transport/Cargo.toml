@@ -4,10 +4,7 @@ description = "NOMAD Protocol - Transport layer with frame encoding, RTT estimat
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-repository.workspace = true
-authors.workspace = true
-keywords = ["transport", "udp", "rtt", "framing", "nomad"]
-categories = ["network-programming", "asynchronous"]
+publish = false
 
 [dependencies]
 nomad-core.workspace = true
