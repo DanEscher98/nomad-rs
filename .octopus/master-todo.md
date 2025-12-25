@@ -4,31 +4,49 @@
 
 | ID | Description | Scope | Status | Worktree |
 |----|-------------|-------|--------|----------|
-| t1-crypto | Security layer (core traits + crypto) | crates/nomad-core, crates/nomad-crypto | pending | .worktrees/t1-crypto |
-| t2-transport | Transport layer | crates/nomad-transport | pending | .worktrees/t2-transport |
-| t3-sync | Sync layer + extensions | crates/nomad-sync, crates/nomad-extensions | pending | .worktrees/t3-sync |
-| t4-api | Client/Server + Echo example | crates/nomad-client, crates/nomad-server, examples/echo | pending | .worktrees/t4-api |
+| t1-crypto | Security layer (core traits + crypto) | crates/nomad-core, crates/nomad-crypto | **READY** | .worktrees/t1-crypto |
+| t2-transport | Transport layer | crates/nomad-transport | **READY** | .worktrees/t2-transport |
+| t3-sync | Sync layer + extensions | crates/nomad-sync, crates/nomad-extensions | **READY** | .worktrees/t3-sync |
+| t4-api | Client/Server + Echo example | crates/nomad-client, crates/nomad-server, examples/echo | **READY** | .worktrees/t4-api |
 
 ## Dependency Order
 
 ```
-t1-crypto (can start immediately)
+t1-crypto (can start immediately - FOUNDATION)
     ↓ publishes: SyncState trait, error types, constants
-t2-transport (needs t1 contracts)
+t2-transport (can start frame encoding independently)
     ↓ publishes: Frame types, ConnectionState
-t3-sync (needs t2 contracts)
+t3-sync (can start message encoding independently)
     ↓ publishes: SyncEngine, SyncTracker
-t4-api (needs t3 contracts)
+t4-api (depends on all above)
     → produces: working echo example
 ```
 
 ## Contracts Status
 
-- [ ] `.octopus/contracts/traits.rs` - Core traits
-- [ ] `.octopus/contracts/errors.rs` - Error types
-- [ ] `.octopus/contracts/constants.rs` - Protocol constants
-- [ ] `.octopus/contracts/frames.rs` - Frame types
-- [ ] `.octopus/contracts/messages.rs` - Sync message types
+- [x] `.octopus/contracts/traits.rs` - Core traits
+- [x] `.octopus/contracts/errors.rs` - Error types
+- [x] `.octopus/contracts/constants.rs` - Protocol constants
+- [x] `.octopus/contracts/frames.rs` - Frame types
+- [x] `.octopus/contracts/messages.rs` - Sync message types
+
+## How to Launch Tentacles
+
+Open separate terminals and run:
+
+```bash
+# Terminal 2 (t1-crypto - START FIRST, foundation)
+cd .worktrees/t1-crypto && claude
+
+# Terminal 3 (t2-transport)
+cd .worktrees/t2-transport && claude
+
+# Terminal 4 (t3-sync)
+cd .worktrees/t3-sync && claude
+
+# Terminal 5 (t4-api - can start but will wait for dependencies)
+cd .worktrees/t4-api && claude
+```
 
 ## Merged Tentacles
 
