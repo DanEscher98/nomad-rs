@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/nomad",
     "crates/nomad-core",
     "crates/nomad-crypto",
     "crates/nomad-transport",
@@ -20,6 +21,7 @@ rust-version = "1.85"
 
 [workspace.dependencies]
 # Internal crates
+nomad = { path = "crates/nomad" }
 nomad-core = { path = "crates/nomad-core" }
 nomad-crypto = { path = "crates/nomad-crypto" }
 nomad-transport = { path = "crates/nomad-transport" }
