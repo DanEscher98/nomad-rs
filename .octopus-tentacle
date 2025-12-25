@@ -1,0 +1,7 @@
+tentacle_id: t2-transport
+description: "Transport layer (frames, RTT, pacing)"
+branch: tentacle/t2-transport
+scope: "crates/nomad-transport/"
+created: 2025-12-25
+brain_worktree: "/home/danyiel/Working/niceProjects/MoshiMoshi/nomad-rs"
+worktree_path: ".worktrees/t2-transport"
