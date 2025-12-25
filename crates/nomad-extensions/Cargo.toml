@@ -1,0 +1,18 @@
+[package]
+name = "nomad-extensions"
+description = "NOMAD Protocol - Extensions (compression)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+nomad-core.workspace = true
+thiserror.workspace = true
+
+[dependencies.zstd]
+workspace = true
+optional = true
+
+[features]
+default = ["compression"]
+compression = ["dep:zstd"]

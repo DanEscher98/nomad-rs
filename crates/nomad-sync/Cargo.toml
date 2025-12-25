@@ -1,0 +1,16 @@
+[package]
+name = "nomad-sync"
+description = "NOMAD Protocol - Sync layer (state versioning, diffs)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+nomad-core.workspace = true
+nomad-transport.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+hex.workspace = true
+json5.workspace = true
+serde.workspace = true

@@ -1,6 +1,58 @@
-[package]
-name = "nomad-rs"
+[workspace]
+resolver = "2"
+members = [
+    "crates/nomad-core",
+    "crates/nomad-crypto",
+    "crates/nomad-transport",
+    "crates/nomad-sync",
+    "crates/nomad-extensions",
+    "crates/nomad-client",
+    "crates/nomad-server",
+    "examples/echo",
+]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/example/nomad-rs"
+rust-version = "1.85"
 
-[dependencies]
+[workspace.dependencies]
+# Internal crates
+nomad-core = { path = "crates/nomad-core" }
+nomad-crypto = { path = "crates/nomad-crypto" }
+nomad-transport = { path = "crates/nomad-transport" }
+nomad-sync = { path = "crates/nomad-sync" }
+nomad-extensions = { path = "crates/nomad-extensions" }
+nomad-client = { path = "crates/nomad-client" }
+nomad-server = { path = "crates/nomad-server" }
+
+# Error handling
+thiserror = "2"
+
+# Crypto
+snow = "0.9"
+chacha20poly1305 = "0.10"
+blake2 = "0.10"
+zeroize = { version = "1", features = ["derive"] }
+rand = "0.8"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Compression
+zstd = "0.13"
+
+# Health check server (for conformance)
+axum = "0.8"
+
+# Test utilities
+hex = "0.4"
+json5 = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+lto = true
+codegen-units = 1

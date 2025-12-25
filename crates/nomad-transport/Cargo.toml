@@ -1,0 +1,17 @@
+[package]
+name = "nomad-transport"
+description = "NOMAD Protocol - Transport layer (frames, RTT, pacing)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+nomad-core.workspace = true
+nomad-crypto.workspace = true
+tokio.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+hex.workspace = true
+json5.workspace = true
+serde.workspace = true

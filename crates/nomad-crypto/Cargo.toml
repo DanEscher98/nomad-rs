@@ -1,0 +1,20 @@
+[package]
+name = "nomad-crypto"
+description = "NOMAD Protocol - Security layer (Noise_IK, XChaCha20-Poly1305)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+nomad-core.workspace = true
+snow.workspace = true
+chacha20poly1305.workspace = true
+blake2.workspace = true
+zeroize.workspace = true
+rand.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+hex.workspace = true
+json5.workspace = true
+serde.workspace = true
