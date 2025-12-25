@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_COMPRESSION_LEVEL","EXTENSION_HEADER_SIZE","MIN_COMPRESS_SIZE"],"enum":["CompressResult","CompressionError","NegotiationError"],"fn":["negotiate"],"mod":["ext_type"],"struct":["CompressionConfig","CompressionStats","Compressor","Extension","ExtensionSet"]};
