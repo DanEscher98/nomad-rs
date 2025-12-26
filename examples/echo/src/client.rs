@@ -16,13 +16,13 @@ use tokio::sync::RwLock;
 
 use crate::state::EchoState;
 
-/// Message types for the protocol.
+/// Message types for the protocol (per specs/1-SECURITY.md).
 mod msg_type {
-    /// Handshake initiation (client -> server)
-    pub const HANDSHAKE_INIT: u8 = 0x00;
-    /// Handshake response (server -> client)
-    pub const HANDSHAKE_RESP: u8 = 0x01;
-    /// Encrypted data frame
+    /// Handshake initiation (client -> server) - Type 0x01
+    pub const HANDSHAKE_INIT: u8 = 0x01;
+    /// Handshake response (server -> client) - Type 0x02
+    pub const HANDSHAKE_RESP: u8 = 0x02;
+    /// Encrypted data frame - Type 0x03
     pub const DATA: u8 = 0x03;
 }
 
@@ -114,6 +114,10 @@ impl EchoClient {
     }
 
     /// Perform the Noise_IK handshake.
+    ///
+    /// Wire format per specs/1-SECURITY.md:
+    /// - HandshakeInit: [Type:1][Reserved:1][Version:2][Noise message...]
+    /// - HandshakeResp: [Type:1][Reserved:1][SessionID:6][Noise message...]
     async fn perform_handshake(
         &mut self,
         socket: &UdpSocket,
@@ -124,12 +128,14 @@ impl EchoClient {
 
         // Build handshake initiation with state type ID as payload
         let payload = EchoState::STATE_TYPE_ID.as_bytes();
-        let init_message = handshake.write_message(payload)?;
+        let noise_message = handshake.write_message(payload)?;
 
-        // Send handshake init: [type:1][message...]
-        let mut packet = Vec::with_capacity(1 + init_message.len());
-        packet.push(msg_type::HANDSHAKE_INIT);
-        packet.extend_from_slice(&init_message);
+        // Build packet per spec: [Type:1][Reserved:1][Version:2][Noise message...]
+        let mut packet = Vec::with_capacity(4 + noise_message.len());
+        packet.push(msg_type::HANDSHAKE_INIT);  // Type 0x01
+        packet.push(0x00);                       // Reserved
+        packet.extend_from_slice(&0x0001u16.to_le_bytes());  // Protocol version 1.0
+        packet.extend_from_slice(&noise_message);
         socket.send(&packet).await?;
 
         eprintln!("Sent handshake init ({} bytes)", packet.len());
@@ -145,26 +151,30 @@ impl EchoClient {
         };
 
         let data = &buf[..len];
-        if data.is_empty() || data[0] != msg_type::HANDSHAKE_RESP {
-            return Err(format!("Unexpected response type: {:02x}", data.get(0).unwrap_or(&0)).into());
-        }
 
-        // Process handshake response
-        let response_payload = &data[1..];
-        let (server_payload, handshake_result) = handshake.read_message(response_payload)?;
+        // Parse response header: [Type:1][Reserved:1][SessionID:6][Noise response...]
+        if data.len() < 8 {
+            return Err("HandshakeResp too short".into());
+        }
+        if data[0] != msg_type::HANDSHAKE_RESP {
+            return Err(format!("Unexpected response type: {:02x}", data[0]).into());
+        }
+        let _reserved = data[1];
+
+        // Extract session ID from header (in the clear)
+        let mut session_id_bytes = [0u8; 6];
+        session_id_bytes.copy_from_slice(&data[2..8]);
+        let session_id = SessionId::from_bytes(session_id_bytes);
+
+        // Process Noise response (starts at byte 8)
+        let noise_response = &data[8..];
+        let (server_payload, handshake_result) = handshake.read_message(noise_response)?;
 
         eprintln!(
-            "Received handshake response, server payload: {:?}",
+            "Received handshake response, session_id: {:02x?}, server payload: {:?}",
+            session_id.as_bytes(),
             String::from_utf8_lossy(&server_payload)
         );
-
-        // Extract session ID from server payload (first 6 bytes)
-        if server_payload.len() < 6 {
-            return Err("Server payload too short for session ID".into());
-        }
-        let mut session_id_bytes = [0u8; 6];
-        session_id_bytes.copy_from_slice(&server_payload[..6]);
-        let session_id = SessionId::from_bytes(session_id_bytes);
 
         // Derive session keys
         let session_keys = SessionKeys::derive(&handshake_result)?;
