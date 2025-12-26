@@ -205,7 +205,8 @@ pub struct CryptoSession {
     replay_window: ReplayWindow,
     /// Old key retention for late packets during rekey
     old_keys: OldKeyRetention,
-    /// Handshake hash for key derivation
+    /// Handshake hash for key derivation (kept for session resumption)
+    #[allow(dead_code)]
     handshake_hash: [u8; HASH_SIZE],
     /// Rekey authentication key for PCS (derived from static DH).
     /// This key is mixed into rekey KDF to ensure post-compromise security.
@@ -357,12 +358,21 @@ impl CryptoSession {
         }
     }
 
-    /// Perform a rekey operation.
+    /// Perform a rekey operation with the given ephemeral DH result.
     ///
     /// Advances the epoch and derives new keys using PCS-secure derivation.
+    /// The caller is responsible for performing the ephemeral key exchange
+    /// and computing the DH shared secret.
+    ///
+    /// # Arguments
+    /// * `ephemeral_dh` - The result of DH(my_ephemeral, their_ephemeral_public)
+    ///
+    /// # Security
     /// The rekey_auth_key (derived from static DH during handshake) is mixed
-    /// into the KDF to ensure post-compromise security.
-    pub fn rekey(&mut self) -> Result<(), CryptoError> {
+    /// into the KDF along with ephemeral_dh. This ensures:
+    /// - Forward secrecy from the fresh ephemeral exchange
+    /// - Post-compromise security from the static DH-derived auth key
+    pub fn rekey(&mut self, ephemeral_dh: &[u8; 32]) -> Result<(), CryptoError> {
         use super::rekey::derive_rekey_keys;
 
         // Retain current keys
@@ -373,11 +383,12 @@ impl CryptoSession {
         self.rekey_state.advance_epoch()?;
 
         // Derive new keys with PCS protection
-        // The rekey_auth_key ensures that even if an attacker compromises
-        // the current session keys, they cannot derive future keys without
-        // knowing the static DH secret
+        // IKM = ephemeral_dh || rekey_auth_key
+        // This ensures that an attacker needs BOTH:
+        // 1. To intercept the ephemeral exchange (forward secrecy)
+        // 2. To know the static DH secret (post-compromise security)
         let (new_initiator_key, new_responder_key) =
-            derive_rekey_keys(&self.handshake_hash, &self.rekey_auth_key, self.rekey_state.epoch())?;
+            derive_rekey_keys(ephemeral_dh, &self.rekey_auth_key, self.rekey_state.epoch())?;
 
         // Update keys based on role
         match self.role {

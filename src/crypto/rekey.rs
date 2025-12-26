@@ -9,7 +9,8 @@
 
 use std::time::Instant;
 
-use blake2::{Blake2s256, Digest};
+use hkdf::Hkdf;
+use sha2::Sha256;
 use crate::core::{
     CryptoError, MAX_EPOCH, OLD_KEY_RETENTION, REJECT_AFTER_MESSAGES, REJECT_AFTER_TIME,
     REKEY_AFTER_MESSAGES, REKEY_AFTER_TIME,
@@ -207,48 +208,45 @@ impl Default for OldKeyRetention {
 /// An attacker who compromises session keys cannot derive future rekey keys
 /// without knowing the static DH secret.
 ///
-/// Per updated 1-SECURITY.md (PCS fix):
+/// Per 1-SECURITY.md (PCS fix):
 /// ```text
-/// ikm = handshake_hash || rekey_auth_key
+/// ikm = ephemeral_dh || rekey_auth_key
 /// (new_initiator_key, new_responder_key) = HKDF-Expand(
 ///     ikm,
 ///     "nomad v1 rekey" || LE32(epoch),
 ///     64
 /// )
 /// ```
+///
+/// # Arguments
+/// * `ephemeral_dh` - The DH result from the rekey ephemeral exchange
+/// * `rekey_auth_key` - Key derived from static DH during initial handshake
+/// * `epoch` - The new epoch number
 pub fn derive_rekey_keys(
-    handshake_hash: &[u8],
+    ephemeral_dh: &[u8; 32],
     rekey_auth_key: &[u8; 32],
     epoch: u32,
 ) -> Result<(SessionKey, SessionKey), CryptoError> {
-    let label = b"nomad v1 rekey";
-    let epoch_bytes = epoch.to_le_bytes();
-
-    // Concatenate handshake_hash || rekey_auth_key as IKM
-    // This ensures PCS: attacker needs both session keys AND static DH
+    // Concatenate ephemeral_dh || rekey_auth_key as IKM
+    // This ensures PCS: attacker needs fresh ephemeral DH AND static DH secret
     let mut ikm = [0u8; 64];
-    ikm[..32].copy_from_slice(handshake_hash);
+    ikm[..32].copy_from_slice(ephemeral_dh);
     ikm[32..].copy_from_slice(rekey_auth_key);
 
-    // HKDF-Expand using BLAKE2s with combined IKM
-    let mut hasher1 = Blake2s256::new();
-    hasher1.update(ikm);
-    hasher1.update(label);
-    hasher1.update(epoch_bytes);
-    hasher1.update([0x01]); // Counter byte
-    let output1 = hasher1.finalize();
+    // Build info: "nomad v1 rekey" || LE32(epoch)
+    let label = b"nomad v1 rekey";
+    let epoch_bytes = epoch.to_le_bytes();
+    let mut info = Vec::with_capacity(label.len() + 4);
+    info.extend_from_slice(label);
+    info.extend_from_slice(&epoch_bytes);
 
-    let mut hasher2 = Blake2s256::new();
-    hasher2.update(ikm);
-    hasher2.update(output1);
-    hasher2.update(label);
-    hasher2.update(epoch_bytes);
-    hasher2.update([0x02]); // Counter byte
-    let output2 = hasher2.finalize();
-
+    // HKDF-Expand only (no Extract step) with SHA-256
+    // The ikm is treated as a PRK directly per the spec
+    let hk = Hkdf::<Sha256>::from_prk(&ikm)
+        .map_err(|_| CryptoError::KeyDerivationFailed)?;
     let mut key_material = [0u8; 64];
-    key_material[..32].copy_from_slice(&output1);
-    key_material[32..].copy_from_slice(&output2);
+    hk.expand(&info, &mut key_material)
+        .map_err(|_| CryptoError::KeyDerivationFailed)?;
 
     let mut initiator_key = [0u8; SESSION_KEY_SIZE];
     let mut responder_key = [0u8; SESSION_KEY_SIZE];
@@ -280,16 +278,16 @@ pub fn derive_rekey_keys(
 /// )
 /// ```
 pub fn derive_rekey_auth_key(static_dh_secret: &[u8; 32]) -> [u8; 32] {
-    let label = b"nomad v1 rekey auth";
+    let info = b"nomad v1 rekey auth";
 
-    let mut hasher = Blake2s256::new();
-    hasher.update(static_dh_secret);
-    hasher.update(label);
-    hasher.update([0x01]); // Counter byte
-    let output = hasher.finalize();
-
+    // HKDF-Expand only (no Extract step) with SHA-256
+    // The static_dh_secret is treated as a PRK directly per the spec
+    let hk = Hkdf::<Sha256>::from_prk(static_dh_secret)
+        .expect("32 bytes is valid PRK length for SHA-256 HKDF");
     let mut rekey_auth_key = [0u8; 32];
-    rekey_auth_key.copy_from_slice(&output);
+    hk.expand(info, &mut rekey_auth_key)
+        .expect("32 bytes is valid output length for SHA-256 HKDF");
+
     rekey_auth_key
 }
 
@@ -365,45 +363,45 @@ mod tests {
 
     #[test]
     fn test_derive_rekey_keys() {
-        let handshake_hash = [0x42u8; 32];
+        let ephemeral_dh = [0x42u8; 32];
         let rekey_auth_key = [0x33u8; 32];
 
-        let (key1_epoch0, key2_epoch0) = derive_rekey_keys(&handshake_hash, &rekey_auth_key, 0).unwrap();
-        let (key1_epoch1, key2_epoch1) = derive_rekey_keys(&handshake_hash, &rekey_auth_key, 1).unwrap();
+        let (key1_epoch0, key2_epoch0) = derive_rekey_keys(&ephemeral_dh, &rekey_auth_key, 0).unwrap();
+        let (key1_epoch1, key2_epoch1) = derive_rekey_keys(&ephemeral_dh, &rekey_auth_key, 1).unwrap();
 
         // Different epochs should produce different keys
         assert_ne!(key1_epoch0.as_bytes(), key1_epoch1.as_bytes());
         assert_ne!(key2_epoch0.as_bytes(), key2_epoch1.as_bytes());
 
         // Same epoch should produce same keys
-        let (key1_epoch0_again, key2_epoch0_again) = derive_rekey_keys(&handshake_hash, &rekey_auth_key, 0).unwrap();
+        let (key1_epoch0_again, key2_epoch0_again) = derive_rekey_keys(&ephemeral_dh, &rekey_auth_key, 0).unwrap();
         assert_eq!(key1_epoch0.as_bytes(), key1_epoch0_again.as_bytes());
         assert_eq!(key2_epoch0.as_bytes(), key2_epoch0_again.as_bytes());
     }
 
     #[test]
-    fn test_derive_rekey_keys_different_hashes() {
-        let hash1 = [0x01u8; 32];
-        let hash2 = [0x02u8; 32];
+    fn test_derive_rekey_keys_different_ephemeral_dh() {
+        let ephemeral_dh1 = [0x01u8; 32];
+        let ephemeral_dh2 = [0x02u8; 32];
         let rekey_auth_key = [0x33u8; 32];
 
-        let (key1_h1, _) = derive_rekey_keys(&hash1, &rekey_auth_key, 0).unwrap();
-        let (key1_h2, _) = derive_rekey_keys(&hash2, &rekey_auth_key, 0).unwrap();
+        let (key1_dh1, _) = derive_rekey_keys(&ephemeral_dh1, &rekey_auth_key, 0).unwrap();
+        let (key1_dh2, _) = derive_rekey_keys(&ephemeral_dh2, &rekey_auth_key, 0).unwrap();
 
-        // Different handshake hashes should produce different keys
-        assert_ne!(key1_h1.as_bytes(), key1_h2.as_bytes());
+        // Different ephemeral DH should produce different keys
+        assert_ne!(key1_dh1.as_bytes(), key1_dh2.as_bytes());
     }
 
     #[test]
     fn test_derive_rekey_keys_pcs() {
         // Test that different rekey_auth_keys produce different rekey keys
         // This verifies the PCS property
-        let handshake_hash = [0x42u8; 32];
+        let ephemeral_dh = [0x42u8; 32];
         let auth_key1 = [0x01u8; 32];
         let auth_key2 = [0x02u8; 32];
 
-        let (key1_auth1, _) = derive_rekey_keys(&handshake_hash, &auth_key1, 0).unwrap();
-        let (key1_auth2, _) = derive_rekey_keys(&handshake_hash, &auth_key2, 0).unwrap();
+        let (key1_auth1, _) = derive_rekey_keys(&ephemeral_dh, &auth_key1, 0).unwrap();
+        let (key1_auth2, _) = derive_rekey_keys(&ephemeral_dh, &auth_key2, 0).unwrap();
 
         // Different rekey_auth_keys should produce different keys
         // This is the core PCS property: knowing session keys but not rekey_auth_key
@@ -430,11 +428,11 @@ mod tests {
     #[test]
     fn test_pcs_property() {
         // Simulate the PCS attack scenario:
-        // Attacker knows: handshake_hash, epoch N key
+        // Attacker knows: ephemeral_dh for the rekey
         // Attacker doesn't know: rekey_auth_key (derived from static DH)
-        // Attacker cannot derive: epoch N+1 key
+        // Attacker cannot derive: new rekey keys
 
-        let handshake_hash = [0x42u8; 32];
+        let ephemeral_dh = [0x42u8; 32];
         let real_static_dh = [0xABu8; 32];
         let attacker_guess_dh = [0xCDu8; 32];
 
@@ -442,12 +440,123 @@ mod tests {
         let attacker_auth_key = derive_rekey_auth_key(&attacker_guess_dh);
 
         // Real keys for epoch 1
-        let (real_key1, _) = derive_rekey_keys(&handshake_hash, &real_auth_key, 1).unwrap();
+        let (real_key1, _) = derive_rekey_keys(&ephemeral_dh, &real_auth_key, 1).unwrap();
 
         // Attacker's attempt at epoch 1 keys (with wrong auth key)
-        let (attacker_key1, _) = derive_rekey_keys(&handshake_hash, &attacker_auth_key, 1).unwrap();
+        let (attacker_key1, _) = derive_rekey_keys(&ephemeral_dh, &attacker_auth_key, 1).unwrap();
 
         // Keys must be different - attacker cannot derive the correct keys
         assert_ne!(real_key1.as_bytes(), attacker_key1.as_bytes());
+    }
+
+    // ===== Test Vector Validation =====
+    // These tests validate against the official NOMAD protocol test vectors
+    // from nomad-specs/tests/vectors/rekey_vectors.json5
+
+    /// Helper to decode hex string to bytes
+    fn hex_to_bytes(hex: &str) -> Vec<u8> {
+        (0..hex.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn test_vector_rekey_auth_key() {
+        // From intermediate_values in rekey_vectors.json5
+        let static_dh = hex_to_bytes("57fbeea357c6ca4af3654988d78e020ccc6f4bc56db385bff4a46084b1187266");
+        let expected_auth_key = hex_to_bytes("48c391a58d3e6fe3e5c463cd874b4565b752da33d63b9d93f9a469549ebbbe09");
+
+        let mut static_dh_arr = [0u8; 32];
+        static_dh_arr.copy_from_slice(&static_dh);
+
+        let auth_key = derive_rekey_auth_key(&static_dh_arr);
+
+        assert_eq!(
+            auth_key.as_slice(),
+            expected_auth_key.as_slice(),
+            "rekey_auth_key derivation doesn't match test vector"
+        );
+    }
+
+    #[test]
+    fn test_vector_epoch_1() {
+        // epoch_0_to_1 vector from rekey_vectors.json5
+        let ephemeral_dh = hex_to_bytes("813c560b94aec760c9a8d12a09bb4c2be3bfc35eb6983ceb264a13046d3aaa75");
+        let rekey_auth_key = hex_to_bytes("48c391a58d3e6fe3e5c463cd874b4565b752da33d63b9d93f9a469549ebbbe09");
+        let expected_initiator_key = hex_to_bytes("ba7ba9959a0338866994033dc46c15df92e6a08b4d5041d5e52070001187c312");
+        let expected_responder_key = hex_to_bytes("91f2e4123a04abe6343003d6ff5793af7aae75ede7fdc6737aaf24964d9285f8");
+
+        let mut ephemeral_dh_arr = [0u8; 32];
+        let mut rekey_auth_key_arr = [0u8; 32];
+        ephemeral_dh_arr.copy_from_slice(&ephemeral_dh);
+        rekey_auth_key_arr.copy_from_slice(&rekey_auth_key);
+
+        let (initiator_key, responder_key) = derive_rekey_keys(&ephemeral_dh_arr, &rekey_auth_key_arr, 1).unwrap();
+
+        assert_eq!(
+            initiator_key.as_bytes(),
+            expected_initiator_key.as_slice(),
+            "epoch 1 initiator key doesn't match test vector"
+        );
+        assert_eq!(
+            responder_key.as_bytes(),
+            expected_responder_key.as_slice(),
+            "epoch 1 responder key doesn't match test vector"
+        );
+    }
+
+    #[test]
+    fn test_vector_epoch_2() {
+        // epoch_1_to_2_pcs_case vector from rekey_vectors.json5
+        let ephemeral_dh = hex_to_bytes("7efd5673c47236ad6f9bf85e945074615c1943c528a87cc0dc9084ad278d266e");
+        let rekey_auth_key = hex_to_bytes("48c391a58d3e6fe3e5c463cd874b4565b752da33d63b9d93f9a469549ebbbe09");
+        let expected_initiator_key = hex_to_bytes("206c3c4f0838aaf5b039bad2ecd1a387d6f784afbf1d283dc0a438ad45f4db3e");
+        let expected_responder_key = hex_to_bytes("786554075c38e73a735b26cbfd650c9fd0f8909227e498487007fc2adfec661d");
+
+        let mut ephemeral_dh_arr = [0u8; 32];
+        let mut rekey_auth_key_arr = [0u8; 32];
+        ephemeral_dh_arr.copy_from_slice(&ephemeral_dh);
+        rekey_auth_key_arr.copy_from_slice(&rekey_auth_key);
+
+        let (initiator_key, responder_key) = derive_rekey_keys(&ephemeral_dh_arr, &rekey_auth_key_arr, 2).unwrap();
+
+        assert_eq!(
+            initiator_key.as_bytes(),
+            expected_initiator_key.as_slice(),
+            "epoch 2 initiator key doesn't match test vector"
+        );
+        assert_eq!(
+            responder_key.as_bytes(),
+            expected_responder_key.as_slice(),
+            "epoch 2 responder key doesn't match test vector"
+        );
+    }
+
+    #[test]
+    fn test_vector_epoch_100() {
+        // epoch_high_number vector from rekey_vectors.json5
+        let ephemeral_dh = hex_to_bytes("0038038a95c66833de6cd4a4743226d03d952d35d1885876f63b95deea271e3f");
+        let rekey_auth_key = hex_to_bytes("48c391a58d3e6fe3e5c463cd874b4565b752da33d63b9d93f9a469549ebbbe09");
+        let expected_initiator_key = hex_to_bytes("dda7dd785c4c5f75096c0ea88023b1558e26bb84f4c4eb72ba7977c6947abc1a");
+        let expected_responder_key = hex_to_bytes("110c7c42998204153892f1ac84634c355ed1b279174befd2f27936073567e54f");
+
+        let mut ephemeral_dh_arr = [0u8; 32];
+        let mut rekey_auth_key_arr = [0u8; 32];
+        ephemeral_dh_arr.copy_from_slice(&ephemeral_dh);
+        rekey_auth_key_arr.copy_from_slice(&rekey_auth_key);
+
+        let (initiator_key, responder_key) = derive_rekey_keys(&ephemeral_dh_arr, &rekey_auth_key_arr, 100).unwrap();
+
+        assert_eq!(
+            initiator_key.as_bytes(),
+            expected_initiator_key.as_slice(),
+            "epoch 100 initiator key doesn't match test vector"
+        );
+        assert_eq!(
+            responder_key.as_bytes(),
+            expected_responder_key.as_slice(),
+            "epoch 100 responder key doesn't match test vector"
+        );
     }
 }

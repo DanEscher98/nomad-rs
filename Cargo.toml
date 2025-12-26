@@ -27,6 +27,8 @@ tokio = { version = "1", features = ["full"], optional = true }
 snow = { version = "0.9", optional = true }
 chacha20poly1305 = { version = "0.10", optional = true }
 blake2 = { version = "0.10", optional = true }
+sha2 = { version = "0.10", optional = true }
+hkdf = { version = "0.12", optional = true }
 zeroize = { version = "1", features = ["derive"], optional = true }
 rand = { version = "0.8", optional = true }
 x25519-dalek = { version = "2", features = ["static_secrets"], optional = true }
@@ -45,7 +47,7 @@ default = ["transport", "crypto", "sync", "extensions", "client", "server"]
 transport = ["dep:tokio"]
 
 # Crypto layer (Noise_IK, XChaCha20-Poly1305, anti-replay)
-crypto = ["dep:snow", "dep:chacha20poly1305", "dep:blake2", "dep:zeroize", "dep:rand", "dep:x25519-dalek"]
+crypto = ["dep:snow", "dep:chacha20poly1305", "dep:blake2", "dep:sha2", "dep:hkdf", "dep:zeroize", "dep:rand", "dep:x25519-dalek"]
 
 # Sync layer
 sync = []

@@ -209,40 +209,29 @@ pub struct SessionKeys {
 impl SessionKeys {
     /// Derive session keys from the handshake result and static DH secret.
     ///
-    /// Uses BLAKE2s-based HKDF with the handshake hash as input for session keys,
+    /// Uses SHA-256 HKDF-Expand with the handshake hash as PRK for session keys,
     /// and the static DH secret for the rekey authentication key (PCS).
     ///
     /// # Arguments
     /// * `result` - The handshake result containing the handshake hash
     /// * `static_dh_secret` - The DH(s_initiator, S_responder) shared secret
     pub fn derive(result: &HandshakeResult, static_dh_secret: &[u8; 32]) -> Result<Self, CryptoError> {
-        use blake2::{Blake2s256, Digest};
+        use hkdf::Hkdf;
+        use sha2::Sha256;
         use super::rekey::derive_rekey_auth_key;
 
         let handshake_hash = &result.handshake_hash;
 
-        // HKDF-Expand using BLAKE2s
-        // Label: "nomad v1 session keys"
+        // HKDF-Expand using SHA-256
+        // PRK = handshake_hash (treated as already-extracted key)
+        // info = "nomad v1 session keys"
         let label = b"nomad v1 session keys";
 
-        // Simple HKDF-Expand using BLAKE2s
-        // PRK = handshake_hash, info = label
-        let mut hasher1 = Blake2s256::new();
-        hasher1.update(handshake_hash);
-        hasher1.update(label);
-        hasher1.update([0x01]); // Counter byte
-        let output1 = hasher1.finalize();
-
-        let mut hasher2 = Blake2s256::new();
-        hasher2.update(handshake_hash);
-        hasher2.update(output1);
-        hasher2.update(label);
-        hasher2.update([0x02]); // Counter byte
-        let output2 = hasher2.finalize();
-
+        let hk = Hkdf::<Sha256>::from_prk(handshake_hash)
+            .map_err(|_| CryptoError::KeyDerivationFailed)?;
         let mut key_material = [0u8; 64];
-        key_material[..32].copy_from_slice(&output1);
-        key_material[32..].copy_from_slice(&output2);
+        hk.expand(label, &mut key_material)
+            .map_err(|_| CryptoError::KeyDerivationFailed)?;
 
         let mut initiator_key = [0u8; SESSION_KEY_SIZE];
         let mut responder_key = [0u8; SESSION_KEY_SIZE];
