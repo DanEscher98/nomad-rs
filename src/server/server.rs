@@ -268,17 +268,9 @@ impl<S: SyncState> NomadServer<S> {
 
             // For now, this is a placeholder that keeps the server "alive"
             let mut buf = [0u8; 65535];
-            loop {
-                match socket.recv_from(&mut buf).await {
-                    Ok((_len, _addr)) => {
-                        // TODO: Parse frame, handle handshake or data
-                        // For now, we just ignore incoming packets
-                    }
-                    Err(_e) => {
-                        // TODO: Handle error
-                        break;
-                    }
-                }
+            while let Ok((_len, _addr)) = socket.recv_from(&mut buf).await {
+                // TODO: Parse frame, handle handshake or data
+                // For now, we just ignore incoming packets
             }
         });
 

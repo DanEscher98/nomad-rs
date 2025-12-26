@@ -6,13 +6,26 @@
 use thiserror::Error;
 
 /// Extension type identifiers
+///
+/// Reserved ranges:
+/// - 0x0001-0x00FF: Core protocol extensions
+/// - 0x0100-0x0FFF: Application-specific extensions
+/// - 0xF000-0xFFFF: Experimental/private extensions
 pub mod ext_type {
     /// Compression extension (zstd)
     pub const COMPRESSION: u16 = 0x0001;
-    /// Scrollback extension (terminal-specific)
-    pub const SCROLLBACK: u16 = 0x0002;
-    /// Prediction extension (terminal-specific)
-    pub const PREDICTION: u16 = 0x0003;
+    /// Priority levels for updates (critical vs cosmetic)
+    pub const PRIORITY: u16 = 0x0002;
+    /// Batch multiple small updates into single frame
+    pub const BATCHING: u16 = 0x0003;
+    /// Server hints for acceptable update frequency
+    pub const RATE_HINTS: u16 = 0x0004;
+    /// Selective sync - sync only specific state regions
+    pub const SELECTIVE_SYNC: u16 = 0x0005;
+    /// Full state checkpoint for recovery/initial sync
+    pub const CHECKPOINT: u16 = 0x0006;
+    /// Metadata attachment (timestamps, causality, user info)
+    pub const METADATA: u16 = 0x0007;
 }
 
 /// Errors from extension negotiation.

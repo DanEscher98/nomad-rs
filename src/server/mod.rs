@@ -2,6 +2,7 @@
 //!
 //! High-level API for NOMAD servers.
 
+#[allow(clippy::module_inception)]
 mod server;
 mod session;
 

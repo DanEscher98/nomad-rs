@@ -1,0 +1,86 @@
+# NOMAD Echo Client - ARM64 (Cortex-X4 / Samsung Tab S10)
+#
+# Cross-compiles from x86 to ARM64 for Android devices.
+# Produces a static musl binary that runs directly on Android.
+#
+# Build static binary (extract to ./out):
+#   docker build -f examples/echo/Dockerfile.client-arm --target binary -o type=local,dest=./out .
+#
+# Build QEMU-runnable container:
+#   docker build -f examples/echo/Dockerfile.client-arm -t nomad-client-arm .
+#
+# Run in QEMU:
+#   docker run --rm --platform linux/arm64 -e NOMAD_SERVER_HOST=host.docker.internal nomad-client-arm
+
+# =============================================================================
+# Stage 1: Cross-compiler setup (runs on x86)
+# =============================================================================
+FROM --platform=$BUILDPLATFORM rust:1.85-bookworm AS cross-base
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        wget \
+        xz-utils && \
+    rm -rf /var/lib/apt/lists/*
+
+# Download musl cross-compiler for fully static ARM64 binaries
+RUN wget -q https://musl.cc/aarch64-linux-musl-cross.tgz -O /tmp/musl.tgz && \
+    tar -xzf /tmp/musl.tgz -C /opt && \
+    rm /tmp/musl.tgz
+
+# Use latest nightly for Rust 2024 edition
+RUN rustup default nightly && \
+    rustup target add aarch64-unknown-linux-musl
+
+WORKDIR /build
+
+# Cortex-X4 optimizations (using cortex-a78 as LLVM base)
+ENV PATH="/opt/aarch64-linux-musl-cross/bin:$PATH" \
+    CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-musl-gcc \
+    CC_aarch64_unknown_linux_musl=aarch64-linux-musl-gcc \
+    AR_aarch64_unknown_linux_musl=aarch64-linux-musl-ar \
+    RUSTFLAGS="-C target-cpu=cortex-a78 -C target-feature=+neon,+aes,+sha2,+crc -C link-self-contained=yes"
+
+# =============================================================================
+# Stage 2: Build static ARM64 binary (cross-compile on x86)
+# =============================================================================
+FROM cross-base AS builder
+
+COPY Cargo.toml Cargo.lock ./
+COPY src/ src/
+COPY examples/echo/ examples/echo/
+
+RUN cargo build --release --target aarch64-unknown-linux-musl -p nomad-echo && \
+    aarch64-linux-musl-strip /build/target/aarch64-unknown-linux-musl/release/nomad-echo && \
+    ls -lh /build/target/aarch64-unknown-linux-musl/release/nomad-echo
+
+# =============================================================================
+# Stage 3: Extract binary only (for adb push to Android)
+# =============================================================================
+FROM scratch AS binary
+
+COPY --from=builder /build/target/aarch64-unknown-linux-musl/release/nomad-echo /nomad-echo
+
+# Extract with:
+#   docker build -f Dockerfile.client-arm --target binary -o type=local,dest=./out .
+#   adb push out/nomad-echo /data/local/tmp/
+#   adb shell chmod 755 /data/local/tmp/nomad-echo
+
+# =============================================================================
+# Stage 4: ARM64 runtime container (runs under QEMU on x86 hosts)
+# =============================================================================
+FROM --platform=linux/arm64 debian:bookworm-slim AS runtime
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates && \
+    apt-get autoremove -y && \
+    apt-get clean -y && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /build/target/aarch64-unknown-linux-musl/release/nomad-echo /usr/local/bin/
+
+ENV NOMAD_MODE=client \
+    NOMAD_SERVER_HOST=host.docker.internal \
+    NOMAD_SERVER_PUBLIC_KEY=gqNRjwG8OsClvG2vWuafYeERaM95Pk0rTLmFAjh6JDo=
+
+ENTRYPOINT ["/usr/local/bin/nomad-echo"]

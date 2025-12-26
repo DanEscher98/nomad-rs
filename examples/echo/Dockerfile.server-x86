@@ -1,29 +1,31 @@
-# NOMAD Echo Example - Optimized Multi-Stage Build
+# NOMAD Echo Server - x86_64
 #
-# Uses cargo-chef for dependency caching (much faster rebuilds)
+# Production server build with cargo-chef for fast rebuilds.
 #
-# Build targets:
-#   docker build -f examples/echo/Dockerfile --target server -t nomad-echo-server .
-#   docker build -f examples/echo/Dockerfile --target client -t nomad-echo-client .
+# Build:
+#   docker build -f examples/echo/Dockerfile.server-x86 -t nomad-echo-server .
 #
 # Run:
 #   docker run -p 19999:19999/udp -p 8080:8080 nomad-echo-server
-#   docker run -e NOMAD_SERVER_HOST=host.docker.internal nomad-echo-client
+#
+# With custom keys:
+#   docker run -p 19999:19999/udp \
+#     -e NOMAD_PRIVATE_KEY=<base64-key> \
+#     nomad-echo-server
 
 # =============================================================================
-# Stage 1: Chef base - Install cargo-chef and build tools
+# Stage 1: Chef - Dependency caching setup
 # =============================================================================
 FROM rust:1.85-bookworm AS chef
 
-RUN rustup default nightly-2025-04-15 && \
+# Use latest nightly for Rust 2024 edition
+RUN rustup default nightly && \
     cargo install cargo-chef --locked && \
     apt-get update && \
     apt-get install -y --no-install-recommends lld clang && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
-
-# Use lld for faster linking
 ENV RUSTFLAGS="-C link-arg=-fuse-ld=lld"
 
 # =============================================================================
@@ -38,15 +40,13 @@ COPY examples/echo/ examples/echo/
 RUN cargo chef prepare --recipe-path recipe.json
 
 # =============================================================================
-# Stage 3: Builder - Build dependencies (cached) then application
+# Stage 3: Builder - Compile
 # =============================================================================
 FROM chef AS builder
 
-# Copy recipe and build dependencies first (cached layer)
 COPY --from=planner /build/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json -p nomad-echo
 
-# Copy source and build application
 COPY Cargo.toml Cargo.lock ./
 COPY src/ src/
 COPY examples/echo/ examples/echo/
@@ -55,9 +55,9 @@ RUN cargo build --release -p nomad-echo && \
     strip /build/target/release/nomad-echo
 
 # =============================================================================
-# Stage 4: Runtime - Minimal production image
+# Stage 4: Runtime - Minimal server image
 # =============================================================================
-FROM debian:bookworm-slim AS runtime
+FROM debian:bookworm-slim
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates && \
@@ -67,28 +67,13 @@ RUN apt-get update && \
 
 COPY --from=builder /build/target/release/nomad-echo /usr/local/bin/
 
-# Default environment
 ENV NOMAD_MODE=server \
     NOMAD_SERVER_PORT=19999 \
     NOMAD_HEALTH_PORT=8080 \
-    NOMAD_BIND_ADDR=0.0.0.0:19999
+    NOMAD_BIND_ADDR=0.0.0.0:19999 \
+    NOMAD_TEST_MODE=true
 
 EXPOSE 19999/udp
 EXPOSE 8080/tcp
 
 ENTRYPOINT ["/usr/local/bin/nomad-echo"]
-
-# =============================================================================
-# Stage 5: Server target
-# =============================================================================
-FROM runtime AS server
-ENV NOMAD_MODE=server \
-    NOMAD_TEST_MODE=true
-
-# =============================================================================
-# Stage 6: Client target
-# =============================================================================
-FROM runtime AS client
-ENV NOMAD_MODE=client \
-    NOMAD_SERVER_HOST=127.0.0.1 \
-    NOMAD_SERVER_PUBLIC_KEY=gqNRjwG8OsClvG2vWuafYeERaM95Pk0rTLmFAjh6JDo=

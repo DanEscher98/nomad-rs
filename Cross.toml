@@ -1,0 +1,16 @@
+# Cross-compilation configuration for ARM testing
+# Install: cargo install cross --git https://github.com/cross-rs/cross
+# Usage: cross test --target aarch64-unknown-linux-gnu
+
+[build.env]
+passthrough = ["RUST_BACKTRACE", "RUST_LOG"]
+
+[target.aarch64-unknown-linux-gnu]
+# Cortex-X4 compatible optimizations
+pre-build = []
+
+[target.aarch64-unknown-linux-gnu.env]
+passthrough = ["NOMAD_TEST_MODE"]
+
+[target.aarch64-unknown-linux-musl]
+pre-build = []
