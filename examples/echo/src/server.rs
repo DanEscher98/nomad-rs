@@ -13,6 +13,7 @@ use nomad_protocol::crypto::{
 };
 use tokio::net::UdpSocket;
 use tokio::sync::RwLock;
+use x25519_dalek::{EphemeralSecret, PublicKey};
 
 use crate::state::EchoState;
 
@@ -24,6 +25,8 @@ mod msg_type {
     pub const HANDSHAKE_RESP: u8 = 0x02;
     /// Encrypted data frame - Type 0x03
     pub const DATA: u8 = 0x03;
+    /// Rekey request/response - Type 0x04
+    pub const REKEY: u8 = 0x04;
 }
 
 /// Server configuration.
@@ -184,6 +187,9 @@ impl EchoServer {
             msg_type::DATA => {
                 self.handle_data(socket, addr, &data[1..]).await
             }
+            msg_type::REKEY => {
+                self.handle_rekey(socket, addr, &data[1..]).await
+            }
             _ => {
                 eprintln!("Unknown message type from {}: 0x{:02x}", addr, msg_type);
                 Ok(())
@@ -248,8 +254,11 @@ impl EchoServer {
         // Complete handshake - this produces: [Responder Ephemeral:32][Encrypted Payload...]
         let (noise_response, handshake_result) = handshake.write_message(response_payload)?;
 
-        // Derive session keys
-        let session_keys = SessionKeys::derive(&handshake_result)?;
+        // Compute static DH secret for PCS (Post-Compromise Security)
+        let static_dh_secret = self.config.keypair.compute_static_dh(&client_public_key);
+
+        // Derive session keys (includes rekey_auth_key for PCS)
+        let session_keys = SessionKeys::derive(&handshake_result, &static_dh_secret)?;
 
         // Create crypto session (server is responder)
         let crypto = CryptoSession::new(
@@ -258,6 +267,7 @@ impl EchoServer {
             session_keys.responder_key,
             session_keys.initiator_key,
             handshake_result.handshake_hash,
+            session_keys.rekey_auth_key,
         );
 
         // Store session
@@ -360,6 +370,97 @@ impl EchoServer {
 
             eprintln!("Echoed back to {}: seq={}", addr, session.server_seq);
         }
+
+        Ok(())
+    }
+
+    /// Handle rekey request.
+    ///
+    /// Wire format: [session_id:6][nonce:8][ciphertext...]
+    /// Decrypted payload: [peer_ephemeral:32][timestamp:4]
+    async fn handle_rekey(
+        &self,
+        socket: &UdpSocket,
+        addr: SocketAddr,
+        data: &[u8],
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Parse header: [session_id:6][nonce:8][ciphertext...]
+        if data.len() < 14 + 16 {
+            // Need at least header + AEAD tag
+            return Err("Rekey packet too short".into());
+        }
+
+        let mut session_id_bytes = [0u8; 6];
+        session_id_bytes.copy_from_slice(&data[0..6]);
+        let nonce_counter = u64::from_le_bytes(data[6..14].try_into()?);
+        let ciphertext = &data[14..];
+
+        // Find session
+        let mut sessions = self.sessions.write().await;
+        let session = sessions
+            .get_mut(&session_id_bytes)
+            .ok_or("Unknown session for rekey")?;
+
+        // Decrypt rekey payload
+        let plaintext = session.crypto.decrypt_frame(msg_type::REKEY, 0x00, nonce_counter, ciphertext)?;
+
+        // Parse decrypted payload: [peer_ephemeral:32][timestamp:4]
+        if plaintext.len() < 36 {
+            return Err("Rekey plaintext too short".into());
+        }
+
+        let mut peer_ephemeral_bytes = [0u8; 32];
+        peer_ephemeral_bytes.copy_from_slice(&plaintext[0..32]);
+        let peer_ephemeral = PublicKey::from(peer_ephemeral_bytes);
+        let _timestamp = u32::from_le_bytes(plaintext[32..36].try_into()?);
+
+        eprintln!(
+            "Received rekey request from {}, epoch {} -> {}",
+            addr,
+            session.crypto.epoch(),
+            session.crypto.epoch() + 1
+        );
+
+        // Generate our ephemeral keypair
+        let our_ephemeral_secret = EphemeralSecret::random_from_rng(rand::thread_rng());
+        let our_ephemeral_public = PublicKey::from(&our_ephemeral_secret);
+
+        // Compute ephemeral DH shared secret
+        let ephemeral_dh = our_ephemeral_secret.diffie_hellman(&peer_ephemeral);
+        let ephemeral_dh_bytes: [u8; 32] = *ephemeral_dh.as_bytes();
+
+        // Send response BEFORE rekeying (using current keys)
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u32;
+
+        // Build response plaintext: [our_ephemeral:32][timestamp:4]
+        let mut response_plaintext = [0u8; 36];
+        response_plaintext[0..32].copy_from_slice(our_ephemeral_public.as_bytes());
+        response_plaintext[32..36].copy_from_slice(&timestamp.to_le_bytes());
+
+        // Encrypt response
+        let (resp_nonce, resp_ciphertext) =
+            session.crypto.encrypt_frame(msg_type::REKEY, 0x00, &response_plaintext)?;
+
+        // Build packet: [type:1][session_id:6][nonce:8][ciphertext...]
+        let mut packet = Vec::with_capacity(15 + resp_ciphertext.len());
+        packet.push(msg_type::REKEY);
+        packet.extend_from_slice(&session_id_bytes);
+        packet.extend_from_slice(&resp_nonce.to_le_bytes());
+        packet.extend_from_slice(&resp_ciphertext);
+
+        socket.send_to(&packet, addr).await?;
+
+        // Now perform the rekey with the ephemeral DH
+        session.crypto.rekey(&ephemeral_dh_bytes)?;
+
+        eprintln!(
+            "Rekey complete for session {:02x?}, now at epoch {}",
+            session_id_bytes,
+            session.crypto.epoch()
+        );
 
         Ok(())
     }

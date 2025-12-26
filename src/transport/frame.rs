@@ -342,6 +342,94 @@ pub struct CloseFrame {
     pub final_ack: u64,
 }
 
+/// Size constants for rekey frames.
+pub mod rekey_sizes {
+    /// Ephemeral public key size (X25519).
+    pub const EPHEMERAL_KEY_SIZE: usize = 32;
+    /// Timestamp size in rekey payload.
+    pub const TIMESTAMP_SIZE: usize = 4;
+    /// Total rekey payload size (ephemeral + timestamp).
+    pub const REKEY_PAYLOAD_SIZE: usize = EPHEMERAL_KEY_SIZE + TIMESTAMP_SIZE;
+}
+
+/// A rekey frame for forward secrecy through key rotation.
+///
+/// Wire format (encrypted portion):
+/// ```text
+/// +---------------------------+------------------+
+/// | New Ephemeral Public Key  | Timestamp        |
+/// | 32 bytes                  | 4 bytes (LE32)   |
+/// +---------------------------+------------------+
+/// ```
+///
+/// The frame header (16 bytes) is used as AAD for AEAD encryption.
+#[derive(Debug, Clone, Copy)]
+pub struct RekeyFrame {
+    /// The frame header (type = Rekey).
+    pub header: DataFrameHeader,
+    /// New ephemeral public key for the DH exchange.
+    pub ephemeral_public: [u8; rekey_sizes::EPHEMERAL_KEY_SIZE],
+    /// Current timestamp in milliseconds since session start.
+    pub timestamp: u32,
+}
+
+impl RekeyFrame {
+    /// Create a new rekey frame.
+    pub fn new(
+        session_id: SessionId,
+        nonce_counter: u64,
+        ephemeral_public: [u8; rekey_sizes::EPHEMERAL_KEY_SIZE],
+        timestamp: u32,
+    ) -> Self {
+        Self {
+            header: DataFrameHeader {
+                frame_type: FrameType::Rekey,
+                flags: FrameFlags::NONE,
+                session_id,
+                nonce_counter,
+            },
+            ephemeral_public,
+            timestamp,
+        }
+    }
+
+    /// Get the plaintext that will be encrypted.
+    pub fn plaintext(&self) -> [u8; rekey_sizes::REKEY_PAYLOAD_SIZE] {
+        let mut buf = [0u8; rekey_sizes::REKEY_PAYLOAD_SIZE];
+        buf[..32].copy_from_slice(&self.ephemeral_public);
+        buf[32..36].copy_from_slice(&self.timestamp.to_le_bytes());
+        buf
+    }
+
+    /// Get the AAD (frame header).
+    pub fn aad(&self) -> [u8; sizes::DATA_FRAME_HEADER_SIZE] {
+        self.header.to_bytes()
+    }
+
+    /// Parse a rekey frame from decrypted payload.
+    pub fn from_decrypted(
+        header: DataFrameHeader,
+        payload: &[u8],
+    ) -> Result<Self, FrameError> {
+        if payload.len() < rekey_sizes::REKEY_PAYLOAD_SIZE {
+            return Err(FrameError::TooShort {
+                expected: rekey_sizes::REKEY_PAYLOAD_SIZE,
+                actual: payload.len(),
+            });
+        }
+
+        let mut ephemeral_public = [0u8; rekey_sizes::EPHEMERAL_KEY_SIZE];
+        ephemeral_public.copy_from_slice(&payload[..32]);
+        let timestamp = u32::from_le_bytes([payload[32], payload[33], payload[34], payload[35]]);
+
+        Ok(Self {
+            header,
+            ephemeral_public,
+            timestamp,
+        })
+    }
+}
+
 impl CloseFrame {
     /// Create a new close frame.
     pub fn new(session_id: SessionId, nonce_counter: u64, final_ack: u64) -> Self {

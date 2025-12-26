@@ -176,8 +176,11 @@ impl EchoClient {
             String::from_utf8_lossy(&server_payload)
         );
 
-        // Derive session keys
-        let session_keys = SessionKeys::derive(&handshake_result)?;
+        // Compute static DH secret for PCS (Post-Compromise Security)
+        let static_dh_secret = self.client_keypair.compute_static_dh(&self.config.server_public_key);
+
+        // Derive session keys (includes rekey_auth_key for PCS)
+        let session_keys = SessionKeys::derive(&handshake_result, &static_dh_secret)?;
 
         // Create crypto session
         let crypto = CryptoSession::new(
@@ -186,6 +189,7 @@ impl EchoClient {
             session_keys.initiator_key,
             session_keys.responder_key,
             handshake_result.handshake_hash,
+            session_keys.rekey_auth_key,
         );
 
         self.crypto = Some(crypto);
