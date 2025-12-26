@@ -1,9 +1,0 @@
-(function() {
-    var implementors = Object.fromEntries([["nomad_protocol",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.91.0/core/ops/drop/trait.Drop.html\" title=\"trait core::ops::drop::Drop\">Drop</a> for <a class=\"struct\" href=\"nomad_protocol/crypto/struct.SessionKey.html\" title=\"struct nomad_protocol::crypto::SessionKey\">SessionKey</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.91.0/core/ops/drop/trait.Drop.html\" title=\"trait core::ops::drop::Drop\">Drop</a> for <a class=\"struct\" href=\"nomad_protocol/crypto/struct.StaticKeypair.html\" title=\"struct nomad_protocol::crypto::StaticKeypair\">StaticKeypair</a>"],["impl&lt;S: <a class=\"trait\" href=\"nomad_protocol/core/trait.SyncState.html\" title=\"trait nomad_protocol::core::SyncState\">SyncState</a>&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.91.0/core/ops/drop/trait.Drop.html\" title=\"trait core::ops::drop::Drop\">Drop</a> for <a class=\"struct\" href=\"nomad_protocol/client/struct.NomadClient.html\" title=\"struct nomad_protocol::client::NomadClient\">NomadClient</a>&lt;S&gt;"],["impl&lt;S: <a class=\"trait\" href=\"nomad_protocol/core/trait.SyncState.html\" title=\"trait nomad_protocol::core::SyncState\">SyncState</a>&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.91.0/core/ops/drop/trait.Drop.html\" title=\"trait core::ops::drop::Drop\">Drop</a> for <a class=\"struct\" href=\"nomad_protocol/server/struct.NomadServer.html\" title=\"struct nomad_protocol::server::NomadServer\">NomadServer</a>&lt;S&gt;"]]]]);
-    if (window.register_implementors) {
-        window.register_implementors(implementors);
-    } else {
-        window.pending_implementors = implementors;
-    }
-})()
-//{"start":57,"fragment_lengths":[1503]}

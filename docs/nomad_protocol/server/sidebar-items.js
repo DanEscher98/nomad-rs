@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["ServerError","ServerEvent","SessionState"],"struct":["NomadServer","NomadServerBuilder","ServerConfig","ServerSession","ServerSessionId","SessionSender"]};

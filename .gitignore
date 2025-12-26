@@ -4,3 +4,4 @@ Cargo.lock
 
 # Octopus tentacle worktrees
 .worktrees/
+docs/

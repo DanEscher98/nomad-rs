@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["BootstrapError","ClientError","ClientState"],"fn":["prepare_bootstrap"],"struct":["BootstrapConfig","BootstrapResult","ClientConfig","ClientIdentity","NomadClient","NomadClientBuilder","ServerInfo","StateReceiver","StateSender"]};
