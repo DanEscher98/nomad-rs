@@ -1,7 +1,7 @@
 /target
-.worktrees/
+out/
 Cargo.lock
+docs/
 
 # Octopus tentacle worktrees
 .worktrees/
-docs/
