@@ -4,6 +4,7 @@
 
 use crate::core::{PRIVATE_KEY_SIZE, PUBLIC_KEY_SIZE, SESSION_ID_SIZE};
 use rand::{rngs::OsRng, RngCore};
+use x25519_dalek::{PublicKey, StaticSecret};
 use zeroize::Zeroize;
 
 /// A static X25519 keypair for long-term identity.
@@ -54,6 +55,23 @@ impl StaticKeypair {
     /// Handle with care - this exposes sensitive key material.
     pub fn private_key(&self) -> &[u8; PRIVATE_KEY_SIZE] {
         &self.private
+    }
+
+    /// Compute the static DH shared secret with a remote public key.
+    ///
+    /// This computes DH(our_static, their_static) which is used for
+    /// deriving the rekey authentication key for PCS.
+    ///
+    /// # Arguments
+    /// * `remote_public` - The remote party's static public key
+    ///
+    /// # Returns
+    /// The 32-byte shared secret
+    pub fn compute_static_dh(&self, remote_public: &[u8; PUBLIC_KEY_SIZE]) -> [u8; 32] {
+        let secret = StaticSecret::from(self.private);
+        let public = PublicKey::from(*remote_public);
+        let shared = secret.diffie_hellman(&public);
+        *shared.as_bytes()
     }
 }
 

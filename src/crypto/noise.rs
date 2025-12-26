@@ -186,6 +186,15 @@ impl ResponderHandshake {
 ///     64
 /// )
 /// ```
+///
+/// Additionally, for PCS (Post-Compromise Security), we derive:
+/// ```text
+/// rekey_auth_key = HKDF-Expand(
+///     static_dh_secret,   // DH(s_initiator, S_responder)
+///     "nomad v1 rekey auth",
+///     32
+/// )
+/// ```
 pub struct SessionKeys {
     /// Key for initiator → responder messages
     pub initiator_key: SessionKey,
@@ -193,14 +202,22 @@ pub struct SessionKeys {
     pub responder_key: SessionKey,
     /// The handshake hash (stored for rekeying)
     pub handshake_hash: [u8; HASH_SIZE],
+    /// Rekey authentication key for PCS (derived from static DH)
+    pub rekey_auth_key: [u8; HASH_SIZE],
 }
 
 impl SessionKeys {
-    /// Derive session keys from the handshake result.
+    /// Derive session keys from the handshake result and static DH secret.
     ///
-    /// Uses BLAKE2s-based HKDF with the handshake hash as input.
-    pub fn derive(result: &HandshakeResult) -> Result<Self, CryptoError> {
+    /// Uses BLAKE2s-based HKDF with the handshake hash as input for session keys,
+    /// and the static DH secret for the rekey authentication key (PCS).
+    ///
+    /// # Arguments
+    /// * `result` - The handshake result containing the handshake hash
+    /// * `static_dh_secret` - The DH(s_initiator, S_responder) shared secret
+    pub fn derive(result: &HandshakeResult, static_dh_secret: &[u8; 32]) -> Result<Self, CryptoError> {
         use blake2::{Blake2s256, Digest};
+        use super::rekey::derive_rekey_auth_key;
 
         let handshake_hash = &result.handshake_hash;
 
@@ -232,6 +249,9 @@ impl SessionKeys {
         initiator_key.copy_from_slice(&key_material[..32]);
         responder_key.copy_from_slice(&key_material[32..]);
 
+        // Derive rekey authentication key from static DH for PCS
+        let rekey_auth_key = derive_rekey_auth_key(static_dh_secret);
+
         // Zeroize the intermediate material
         key_material.zeroize();
 
@@ -239,6 +259,7 @@ impl SessionKeys {
             initiator_key: SessionKey::from_bytes(initiator_key),
             responder_key: SessionKey::from_bytes(responder_key),
             handshake_hash: *handshake_hash,
+            rekey_auth_key,
         })
     }
 }
@@ -309,9 +330,14 @@ mod tests {
         // Both should have the same handshake hash
         assert_eq!(initiator_result.handshake_hash, responder_result.handshake_hash);
 
-        // Both can derive session keys
-        let initiator_keys = SessionKeys::derive(&initiator_result).unwrap();
-        let responder_keys = SessionKeys::derive(&responder_result).unwrap();
+        // Compute static DH for both parties (should be the same)
+        let initiator_static_dh = initiator_keypair.compute_static_dh(responder_keypair.public_key());
+        let responder_static_dh = responder_keypair.compute_static_dh(initiator_keypair.public_key());
+        assert_eq!(initiator_static_dh, responder_static_dh);
+
+        // Both can derive session keys with static DH
+        let initiator_keys = SessionKeys::derive(&initiator_result, &initiator_static_dh).unwrap();
+        let responder_keys = SessionKeys::derive(&responder_result, &responder_static_dh).unwrap();
 
         // Keys should match (initiator's send = responder's receive)
         assert_eq!(
@@ -322,6 +348,9 @@ mod tests {
             initiator_keys.recv_key(Role::Initiator).as_bytes(),
             responder_keys.send_key(Role::Responder).as_bytes()
         );
+
+        // Rekey auth keys should also match
+        assert_eq!(initiator_keys.rekey_auth_key, responder_keys.rekey_auth_key);
     }
 
     #[test]
@@ -361,8 +390,11 @@ mod tests {
         let (resp_message, responder_result) = responder.write_message(b"").unwrap();
         let (_, initiator_result) = initiator.read_message(&resp_message).unwrap();
 
-        let initiator_keys = SessionKeys::derive(&initiator_result).unwrap();
-        let responder_keys = SessionKeys::derive(&responder_result).unwrap();
+        // Compute static DH
+        let static_dh = initiator_keypair.compute_static_dh(responder_keypair.public_key());
+
+        let initiator_keys = SessionKeys::derive(&initiator_result, &static_dh).unwrap();
+        let responder_keys = SessionKeys::derive(&responder_result, &static_dh).unwrap();
 
         // Verify role-based key access
         assert_eq!(

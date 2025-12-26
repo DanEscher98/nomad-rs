@@ -207,16 +207,30 @@ pub struct CryptoSession {
     old_keys: OldKeyRetention,
     /// Handshake hash for key derivation
     handshake_hash: [u8; HASH_SIZE],
+    /// Rekey authentication key for PCS (derived from static DH).
+    /// This key is mixed into rekey KDF to ensure post-compromise security.
+    /// Without this key, an attacker who compromises session keys cannot
+    /// derive future rekey keys.
+    rekey_auth_key: [u8; HASH_SIZE],
 }
 
 impl CryptoSession {
     /// Create a new crypto session after handshake completion.
+    ///
+    /// # Arguments
+    /// * `session_id` - Unique session identifier
+    /// * `role` - Our role (initiator or responder)
+    /// * `send_key` - Initial send key
+    /// * `recv_key` - Initial receive key
+    /// * `handshake_hash` - Hash of the handshake transcript
+    /// * `rekey_auth_key` - Key derived from static DH for PCS during rekey
     pub fn new(
         session_id: SessionId,
         role: Role,
         send_key: SessionKey,
         recv_key: SessionKey,
         handshake_hash: [u8; HASH_SIZE],
+        rekey_auth_key: [u8; HASH_SIZE],
     ) -> Self {
         Self {
             session_id,
@@ -227,6 +241,7 @@ impl CryptoSession {
             replay_window: ReplayWindow::new(),
             old_keys: OldKeyRetention::new(),
             handshake_hash,
+            rekey_auth_key,
         }
     }
 
@@ -344,7 +359,9 @@ impl CryptoSession {
 
     /// Perform a rekey operation.
     ///
-    /// Advances the epoch and derives new keys.
+    /// Advances the epoch and derives new keys using PCS-secure derivation.
+    /// The rekey_auth_key (derived from static DH during handshake) is mixed
+    /// into the KDF to ensure post-compromise security.
     pub fn rekey(&mut self) -> Result<(), CryptoError> {
         use super::rekey::derive_rekey_keys;
 
@@ -355,9 +372,12 @@ impl CryptoSession {
         // Advance epoch
         self.rekey_state.advance_epoch()?;
 
-        // Derive new keys
+        // Derive new keys with PCS protection
+        // The rekey_auth_key ensures that even if an attacker compromises
+        // the current session keys, they cannot derive future keys without
+        // knowing the static DH secret
         let (new_initiator_key, new_responder_key) =
-            derive_rekey_keys(&self.handshake_hash, self.rekey_state.epoch())?;
+            derive_rekey_keys(&self.handshake_hash, &self.rekey_auth_key, self.rekey_state.epoch())?;
 
         // Update keys based on role
         match self.role {
@@ -449,6 +469,7 @@ mod tests {
         let send_key = SessionKey::from_bytes([0x01; 32]);
         let recv_key = SessionKey::from_bytes([0x02; 32]);
         let handshake_hash = [0x42; 32];
+        let rekey_auth_key = [0x33; 32]; // PCS rekey authentication key
 
         let mut initiator = CryptoSession::new(
             session_id,
@@ -456,6 +477,7 @@ mod tests {
             send_key.clone(),
             recv_key.clone(),
             handshake_hash,
+            rekey_auth_key,
         );
 
         let mut responder = CryptoSession::new(
@@ -464,6 +486,7 @@ mod tests {
             recv_key.clone(),
             send_key.clone(),
             handshake_hash,
+            rekey_auth_key,
         );
 
         // Initiator sends
@@ -494,6 +517,7 @@ mod tests {
         let send_key = SessionKey::from_bytes([0x01; 32]);
         let recv_key = SessionKey::from_bytes([0x02; 32]);
         let handshake_hash = [0x42; 32];
+        let rekey_auth_key = [0x33; 32];
 
         let mut initiator = CryptoSession::new(
             session_id,
@@ -501,6 +525,7 @@ mod tests {
             send_key.clone(),
             recv_key.clone(),
             handshake_hash,
+            rekey_auth_key,
         );
 
         let mut responder = CryptoSession::new(
@@ -509,6 +534,7 @@ mod tests {
             recv_key.clone(),
             send_key.clone(),
             handshake_hash,
+            rekey_auth_key,
         );
 
         let plaintext = b"test";
@@ -531,6 +557,7 @@ mod tests {
         let send_key = SessionKey::from_bytes([0x01; 32]);
         let recv_key = SessionKey::from_bytes([0x02; 32]);
         let handshake_hash = [0x42; 32];
+        let rekey_auth_key = [0x33; 32];
 
         let mut initiator = CryptoSession::new(
             session_id,
@@ -538,6 +565,7 @@ mod tests {
             send_key.clone(),
             recv_key.clone(),
             handshake_hash,
+            rekey_auth_key,
         );
 
         let mut responder = CryptoSession::new(
@@ -546,6 +574,7 @@ mod tests {
             recv_key.clone(),
             send_key.clone(),
             handshake_hash,
+            rekey_auth_key,
         );
 
         let plaintext = b"test";
